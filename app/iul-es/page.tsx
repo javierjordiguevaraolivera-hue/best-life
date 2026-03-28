@@ -194,6 +194,8 @@ const thankYouFaqs = [
   },
 ];
 
+const deviceStorageKey = "best-money-device-id";
+
 function formatPhoneDigits(value: string) {
   const digits = value.replace(/\D/g, "").slice(0, 10);
   const chunks = [];
@@ -204,7 +206,46 @@ function formatPhoneDigits(value: string) {
 }
 
 function isValidPhone(value: string) {
-  return value.replace(/\D/g, "").length === 10;
+  return getPhoneValidationMessage(value) === "";
+}
+
+function getPhoneValidationMessage(value: string) {
+  const digits = value.replace(/\D/g, "");
+
+  if (digits.length !== 10) {
+    return "Ingresa un numero valido de EE.UU. con 10 digitos.";
+  }
+
+  if (!/^[2-9]\d{2}[2-9]\d{6}$/.test(digits)) {
+    return "Ingresa un numero real de EE.UU.";
+  }
+
+  if (
+    digits === "0123456789" ||
+    digits === "1234567890" ||
+    digits === "9876543210" ||
+    /^(\d)\1{9}$/.test(digits) ||
+    /^(\d{2})\1{4}$/.test(digits) ||
+    /^(\d{5})\1$/.test(digits) ||
+    digits.split("").filter((digit) => digit === "0").length >= 7 ||
+    digits.slice(0, 3) === "555" ||
+    digits.slice(3, 6) === "555"
+  ) {
+    return "Ingresa un numero real de EE.UU. Evita secuencias o numeros de ejemplo.";
+  }
+
+  return "";
+}
+
+function getOrCreateDeviceId() {
+  if (typeof window === "undefined") return "";
+
+  const existing = window.localStorage.getItem(deviceStorageKey);
+  if (existing) return existing;
+
+  const newId = `bm_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`;
+  window.localStorage.setItem(deviceStorageKey, newId);
+  return newId;
 }
 
 function isValidEmail(value: string) {
@@ -715,8 +756,9 @@ export default function Home() {
   async function submitLead() {
     if (!answers.firstName.trim() || !answers.lastName.trim()) return;
 
-    if (!isValidPhone(normalizedPhone)) {
-      setPhoneError("Por favor, ingresa un numero de telefono valido.");
+    const phoneValidationMessage = getPhoneValidationMessage(normalizedPhone);
+    if (phoneValidationMessage) {
+      setPhoneError(phoneValidationMessage);
       return;
     }
 
@@ -751,11 +793,15 @@ export default function Home() {
         body: JSON.stringify({
           page: pageValue,
           answers: cleanedAnswers,
+          meta: {
+            deviceId: getOrCreateDeviceId(),
+          },
         }),
       });
 
       if (!response.ok) {
-        throw new Error("Lead submission failed");
+        const errorBody = (await response.json().catch(() => null)) as { error?: string } | null;
+        throw new Error(errorBody?.error || "Lead submission failed");
       }
 
       const leadNonce = `${Date.now()}`;
@@ -766,10 +812,12 @@ export default function Home() {
       );
       setLeadEventNonce(leadNonce);
       transitionTo("success", "forward");
-    } catch {
-      setSubmitError(
-        "No pudimos enviar tu solicitud ahora mismo. Tus respuestas quedaron guardadas."
-      );
+    } catch (error) {
+      const message =
+        error instanceof Error && error.message
+          ? error.message
+          : "No pudimos enviar tu solicitud ahora mismo. Tus respuestas quedaron guardadas.";
+      setSubmitError(message);
     } finally {
       setIsSubmittingLead(false);
     }
@@ -1279,8 +1327,9 @@ export default function Home() {
               <button
                 type="button"
                 onClick={() => {
-                  if (!isValidPhone(normalizedPhone)) {
-                    setPhoneError("Por favor, ingresa un numero de telefono valido.");
+                  const phoneValidationMessage = getPhoneValidationMessage(normalizedPhone);
+                  if (phoneValidationMessage) {
+                    setPhoneError(phoneValidationMessage);
                     return;
                   }
                   setPhoneError("");
