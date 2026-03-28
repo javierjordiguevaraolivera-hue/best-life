@@ -473,6 +473,7 @@ export default function Home() {
   const isHomePage = pathname === "/";
   const pageValue = isHomePage ? "home" : pathname;
   const storageKeyValue = useMemo(() => `best-money-funnel-v1:${pageValue}`, [pageValue]);
+  const selectedState = answers.state || answers.detectedState || "Florida";
   const animationClass = isTransitioningOut
     ? "animate-[survey-question-out_0.18s_cubic-bezier(0.4,0,1,1)_forwards]"
     : "animate-[survey-question-in_0.42s_cubic-bezier(0.22,0.61,0.36,1)]";
@@ -1088,16 +1089,15 @@ export default function Home() {
             <div className={`mt-8 flex w-full max-w-[460px] flex-col gap-4 md:mt-10 ${animationClass}`}>
               <label
                 className={`relative flex min-h-[78px] w-full cursor-pointer rounded-[16px] border bg-white px-5 py-4 text-left shadow-[0_4px_10px_rgba(16,24,32,0.08)] transition ${
-                  answers.state && answers.state === (answers.detectedState || "")
+                  selectedState === (answers.detectedState || "")
                     ? "border-[var(--brand)] shadow-[0_0_0_1px_var(--brand)]"
                     : "border-[#9c9c9c]"
                 }`}
               >
                 <span className="flex min-w-0 flex-1 flex-col">
                   <span className="text-[17px] text-[#101820]">
-                    {answers.state || answers.detectedState || "Florida"}{" "}
-                    {(answers.state || answers.detectedState) ===
-                    (answers.detectedState || answers.state) ? (
+                    {selectedState}{" "}
+                    {selectedState === (answers.detectedState || selectedState) ? (
                       <span className="text-[14px] font-medium text-[var(--brand-dark)]">
                         (Detectado)
                       </span>
@@ -1114,7 +1114,7 @@ export default function Home() {
                   <svg viewBox="0 0 24 24" className="h-[18px] w-[18px]" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6" /></svg>
                 </span>
                 <select
-                  value={answers.state}
+                  value={selectedState}
                   onChange={(event) =>
                     setAnswers((prev) => ({
                       ...prev,
@@ -1137,10 +1137,16 @@ export default function Home() {
               <button
                 type="button"
                 onClick={() => {
-                  if (!answers.state) return;
+                  if (!selectedState) return;
+                  if (!answers.state) {
+                    setAnswers((prev) => ({
+                      ...prev,
+                      state: selectedState,
+                    }));
+                  }
                   transitionTo("name", "forward");
                 }}
-                disabled={!answers.state}
+                disabled={!selectedState}
                 className="inline-flex h-[54px] items-center justify-center gap-2 rounded-full bg-[var(--brand)] px-6 text-[18px] font-semibold text-white transition disabled:cursor-not-allowed disabled:opacity-45 hover:bg-[var(--brand-dark)]"
               >
                 <span>Confirmar ubicacion</span>
