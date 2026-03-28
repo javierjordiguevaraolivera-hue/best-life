@@ -465,7 +465,9 @@ export default function Home() {
   const [emailError, setEmailError] = useState("");
   const [submitError, setSubmitError] = useState("");
   const [isSubmittingLead, setIsSubmittingLead] = useState(false);
+  const [leadEventNonce, setLeadEventNonce] = useState<string | null>(null);
   const transitionTimeoutRef = useRef<number | null>(null);
+  const trackedLeadNonceRef = useRef<string | null>(null);
 
   const progress = progressByStep[currentStep];
   const isSuccessPage = currentStep === "success";
@@ -473,6 +475,7 @@ export default function Home() {
   const isHomePage = pathname === "/";
   const pageValue = isHomePage ? "home" : pathname;
   const storageKeyValue = useMemo(() => `best-money-funnel-v1:${pageValue}`, [pageValue]);
+  const successHash = "#gracias";
   const selectedState = answers.state || answers.detectedState || "Florida";
   const animationClass = isTransitioningOut
     ? "animate-[survey-question-out_0.18s_cubic-bezier(0.4,0,1,1)_forwards]"
@@ -497,7 +500,11 @@ export default function Home() {
         }
       }
 
-      if (parsed.currentStep && stepOrder.includes(parsed.currentStep)) {
+      if (
+        parsed.currentStep &&
+        parsed.currentStep !== "success" &&
+        stepOrder.includes(parsed.currentStep)
+      ) {
         setCurrentStep(parsed.currentStep);
       }
     } catch {
@@ -509,7 +516,11 @@ export default function Home() {
 
   useEffect(() => {
     if (!hasHydratedSavedData) return;
-    window.localStorage.setItem(storageKeyValue, JSON.stringify({ currentStep, answers }));
+    const persistedStep = currentStep === "success" ? "intro" : currentStep;
+    window.localStorage.setItem(
+      storageKeyValue,
+      JSON.stringify({ currentStep: persistedStep, answers }),
+    );
   }, [answers, currentStep, hasHydratedSavedData, storageKeyValue]);
 
   useEffect(() => {
@@ -635,6 +646,36 @@ export default function Home() {
     };
   }, []);
 
+  useEffect(() => {
+    const guardSuccessHash = () => {
+      if (window.location.hash !== successHash) return;
+      if (currentStep === "success" || leadEventNonce) return;
+
+      window.history.replaceState(null, "", `${window.location.pathname}${window.location.search}`);
+      setCurrentStep("intro");
+      setPanelKey((prev) => prev + 1);
+    };
+
+    guardSuccessHash();
+    window.addEventListener("hashchange", guardSuccessHash);
+    return () => window.removeEventListener("hashchange", guardSuccessHash);
+  }, [currentStep, leadEventNonce, successHash]);
+
+  useEffect(() => {
+    if (!leadEventNonce || currentStep !== "success" || window.location.hash !== successHash) return;
+    if (trackedLeadNonceRef.current === leadEventNonce) return;
+
+    const trackingWindow = window as Window &
+      typeof globalThis & {
+        fbq?: (...args: unknown[]) => void;
+        ttq?: { track?: (...args: unknown[]) => void };
+      };
+
+    trackedLeadNonceRef.current = leadEventNonce;
+    trackingWindow.fbq?.("track", "Lead");
+    trackingWindow.ttq?.track?.("CompleteRegistration");
+  }, [currentStep, leadEventNonce, successHash]);
+
   function transitionTo(nextStep: FunnelStep, direction: "forward" | "backward") {
     setSlideDirection(direction);
     setIsTransitioningOut(true);
@@ -717,6 +758,13 @@ export default function Home() {
         throw new Error("Lead submission failed");
       }
 
+      const leadNonce = `${Date.now()}`;
+      window.history.replaceState(
+        null,
+        "",
+        `${window.location.pathname}${window.location.search}${successHash}`,
+      );
+      setLeadEventNonce(leadNonce);
       transitionTo("success", "forward");
     } catch {
       setSubmitError(
