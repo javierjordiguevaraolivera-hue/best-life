@@ -103,8 +103,8 @@ const progressByStep: Record<FunnelStep, number | null> = {
 };
 
 const emptyAnswers: FunnelAnswers = {
-  zipCode: "33133",
-  locationText: "Coconut Grove, Florida",
+  zipCode: "",
+  locationText: "",
   ageGroup: "",
   insuranceGoal: "",
   state: "",
@@ -220,6 +220,10 @@ function extractCityFromLocation(locationText: string) {
   if (!city) return "";
   if (/area|rates available/i.test(city)) return "";
   return city;
+}
+
+function isLegacyPlaceholderLocation(locationText: string) {
+  return locationText.trim().toLowerCase() === "coconut grove, florida";
 }
 
 function optionButtonClass(isSelected: boolean) {
@@ -495,9 +499,18 @@ export default function Home() {
       const parsed = JSON.parse(raw) as { answers?: Partial<FunnelAnswers>; currentStep?: FunnelStep };
 
       if (parsed.answers) {
-        setAnswers((prev) => ({ ...prev, ...parsed.answers }));
-        if (parsed.answers.locationText) {
-          setDefaultLocationText(parsed.answers.locationText);
+        const sanitizedAnswers = { ...parsed.answers };
+
+        if (isHomeLikePage && isLegacyPlaceholderLocation(sanitizedAnswers.locationText || "")) {
+          sanitizedAnswers.locationText = "";
+          if (sanitizedAnswers.zipCode === "33133") {
+            sanitizedAnswers.zipCode = "";
+          }
+        }
+
+        setAnswers((prev) => ({ ...prev, ...sanitizedAnswers }));
+        if (sanitizedAnswers.locationText) {
+          setDefaultLocationText(sanitizedAnswers.locationText);
         }
       }
 
