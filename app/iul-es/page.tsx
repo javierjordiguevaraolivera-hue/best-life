@@ -465,7 +465,6 @@ export default function Home() {
   const [emailError, setEmailError] = useState("");
   const [submitError, setSubmitError] = useState("");
   const [isSubmittingLead, setIsSubmittingLead] = useState(false);
-  const [leadEventNonce, setLeadEventNonce] = useState<string | null>(null);
   const transitionTimeoutRef = useRef<number | null>(null);
 
   const progress = progressByStep[currentStep];
@@ -635,19 +634,6 @@ export default function Home() {
     };
   }, []);
 
-  useEffect(() => {
-    if (!leadEventNonce || currentStep !== "success") return;
-
-    const trackingWindow = window as Window &
-      typeof globalThis & {
-        fbq?: (...args: unknown[]) => void;
-        ttq?: { track?: (...args: unknown[]) => void };
-      };
-
-    trackingWindow.fbq?.("track", "Lead");
-    trackingWindow.ttq?.track?.("CompleteRegistration");
-  }, [currentStep, leadEventNonce]);
-
   function transitionTo(nextStep: FunnelStep, direction: "forward" | "backward") {
     setSlideDirection(direction);
     setIsTransitioningOut(true);
@@ -730,7 +716,6 @@ export default function Home() {
         throw new Error("Lead submission failed");
       }
 
-      setLeadEventNonce(`${Date.now()}`);
       transitionTo("success", "forward");
     } catch {
       setSubmitError(
@@ -765,19 +750,18 @@ export default function Home() {
     return (
       <div className="mx-auto flex w-full max-w-[760px] flex-col items-center">
         <div className="animate-[fade-up_0.55s_ease-out] text-center">
-          <h1 className="mx-auto w-full max-w-none px-1 text-[20px] leading-[1.12] font-semibold tracking-[-0.045em] text-[#101820] md:max-w-[800px] md:px-0 md:text-[38px] md:font-bold">
-            Programa de Seguro de Vida tipo IUL
-          </h1>
-          <p className="mt-2 text-[15px] leading-[1.35] text-[#191919] md:mt-3 md:text-[20px]">
+          <div className="mx-auto flex w-full max-w-[404px] flex-col items-center px-1 md:max-w-[760px] md:px-0">
+            <span className="text-[23px] leading-none font-semibold tracking-[-0.045em] text-[#101820] underline decoration-[2px] underline-offset-[4px] md:text-[32px] md:decoration-[3px] md:underline-offset-[6px]">
+              ATENCION
+            </span>
+            <h1 className="mt-1 text-[28px] leading-[1.1] font-bold tracking-[-0.05em] text-[#101820] md:mt-3 md:text-[46px] md:leading-[1.06]">
+              <span className="block">Nuevo Programa</span>
+              <span className="mt-1 block md:mt-2">de Seguro de Vida IUL</span>
+            </h1>
+          </div>
+          <p className="mt-4 text-[13px] leading-[1.3] text-[#191919] md:mt-4 md:text-[18px]">
             {heroClaimText}
           </p>
-          <div className="mx-auto flex max-w-[800px] justify-center">
-            <img
-              src="/best-money-assets/trum accounts.gif"
-              alt="Trum Accounts"
-              className="mt-3 h-auto max-h-[236px] w-auto max-w-full md:mt-4 md:max-h-[264px]"
-            />
-          </div>
         </div>
 
         <div

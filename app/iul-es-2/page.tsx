@@ -471,9 +471,12 @@ export default function Home() {
   const progress = progressByStep[currentStep];
   const isSuccessPage = currentStep === "success";
   const isQuestionnaire = currentStep !== "intro";
-  const isHomePage = pathname === "/";
-  const pageValue = isHomePage ? "home" : pathname;
-  const storageKeyValue = useMemo(() => `best-money-funnel-v1:${pageValue}`, [pageValue]);
+  const isHomeLikePage = pathname === "/" || pathname === "/iul-es-2";
+  const pageValue = pathname === "/" ? "home" : pathname;
+  const storageKeyValue = useMemo(
+    () => `best-money-funnel-v1:${pathname === "/" ? "home" : pathname}`,
+    [pathname],
+  );
   const animationClass = isTransitioningOut
     ? "animate-[survey-question-out_0.18s_cubic-bezier(0.4,0,1,1)_forwards]"
     : "animate-[survey-question-in_0.42s_cubic-bezier(0.22,0.61,0.36,1)]";
@@ -532,8 +535,8 @@ export default function Home() {
         setAnswers((prev) => ({
           ...prev,
           zipCode:
-            isHomePage
-              ? prev.zipCode
+              isHomeLikePage
+                ? prev.zipCode
               : prev.zipCode && prev.zipCode.length === 5
                 ? prev.zipCode
                 : data.zipCode && /^\d{5}$/.test(data.zipCode)
@@ -555,11 +558,11 @@ export default function Home() {
     return () => {
       isCancelled = true;
     };
-  }, [isHomePage]);
+  }, [isHomeLikePage]);
 
   useEffect(() => {
     if (!hasLoadedGeo) return;
-    if (isHomePage) {
+    if (isHomeLikePage) {
       setIsLookingUpZip(false);
       return;
     }
@@ -625,7 +628,7 @@ export default function Home() {
       controller.abort();
       window.clearTimeout(timeoutId);
     };
-  }, [answers.zipCode, defaultLocationText, hasLoadedGeo, isHomePage]);
+  }, [answers.zipCode, defaultLocationText, hasLoadedGeo, isHomeLikePage]);
 
   useEffect(() => {
     return () => {
@@ -713,7 +716,7 @@ export default function Home() {
           phoneNumber: normalizedPhone,
           email: answers.email.trim(),
           locationText: answers.locationText,
-          zipCode: isHomePage ? undefined : answers.zipCode,
+      zipCode: isHomeLikePage ? undefined : answers.zipCode,
         }).filter(([, value]) => value !== "" && value != null)
       );
 
@@ -773,8 +776,8 @@ export default function Home() {
           </p>
           <div className="mx-auto flex max-w-[800px] justify-center">
             <img
-              src="/best-money-assets/trum accounts.gif"
-              alt="Trum Accounts"
+              src="/best-money-assets/NEW_MC.gif"
+              alt="NEW MC"
               className="mt-3 h-auto max-h-[236px] w-auto max-w-full md:mt-4 md:max-h-[264px]"
             />
           </div>
@@ -782,10 +785,10 @@ export default function Home() {
 
         <div
           className={`mx-auto flex w-full max-w-[392px] animate-[fade-up_0.7s_ease-out] flex-col items-center md:max-w-[352px] ${
-            isHomePage ? "mt-5 md:mt-4" : "mt-8 md:mt-6"
+            isHomeLikePage ? "mt-5 md:mt-4" : "mt-8 md:mt-6"
           }`}
         >
-          {isHomePage ? null : (
+          {isHomeLikePage ? null : (
             <>
               <label className="relative block w-full">
                 <span className="pointer-events-none absolute left-[18px] top-[10px] z-10 text-[13px] leading-none text-[#555]">
@@ -832,7 +835,7 @@ export default function Home() {
             type="button"
             onClick={startQuestionnaire}
             className={`inline-flex h-[52px] w-full items-center justify-center rounded-full bg-[var(--brand)] px-6 text-[17px] font-extrabold tracking-[-0.02em] text-white transition hover:bg-[var(--brand-dark)] md:h-[47px] md:text-[19px] ${
-              isHomePage ? "mt-0 md:mt-1" : "mt-2 md:mt-3"
+              isHomeLikePage ? "mt-0 md:mt-1" : "mt-2 md:mt-3"
             }`}
           >
             <span
