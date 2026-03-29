@@ -3,7 +3,7 @@ import Script from "next/script";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "BestMoney Home Insurance",
+  title: "Best Life IUL Insurance",
   description:
     "Landing page inspired by the original BestMoney home insurance compare experience.",
   icons: {
