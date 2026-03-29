@@ -10,6 +10,34 @@ const trustBadges = [
   { icon: "/best-money-assets/minutes.svg", text: "Toma menos de 2 minutos" },
 ];
 
+const introBenefits = [
+  {
+    icon: "📈",
+    title: "Ahorro con Interés Compuesto",
+    description: "Maximiza tus fondos con rendimientos de hasta el 9.5% anual.",
+  },
+  {
+    icon: "🚫",
+    title: "Retiros Libres de Impuestos",
+    description: "Accede a tu dinero para el retiro sin pagar impuestos al IRS.",
+  },
+  {
+    icon: "🏦",
+    title: "Liquidez Inmediata",
+    description: "Solicita préstamos usando tu póliza como garantía cuando quieras.",
+  },
+  {
+    icon: "🛡️",
+    title: "Protección Contra Caídas",
+    description: "Tu ahorro está seguro (Piso 0%) aunque el mercado caiga.",
+  },
+  {
+    icon: "🏥",
+    title: "Beneficios en Vida",
+    description: "Usa tus fondos en caso de una enfermedad crítica o emergencia grave.",
+  },
+];
+
 const howItWorksSteps = [
   { number: "1", title: "Te hacemos unas preguntas", description: "para verificar si calificas." },
   { number: "2", title: "Revisamos tu perfil", description: "y estimamos tu beneficio IUL." },
@@ -42,8 +70,8 @@ const ageOptions = ["25 a 34", "35 a 44", "45 a 54", "55 a 65", "65+"];
 const goalOptions = [
   "Seguro de vida",
   "Ahorrar e invertir",
-  "Planificacion de retiro",
-  "No estoy seguro aun",
+  "Planificación de retiro",
+  "No estoy seguro aún",
 ];
 const stateOptions = [
   "Alabama", "Alaska", "Arizona", "Arkansas", "California", "Colorado", "Connecticut",
@@ -129,21 +157,21 @@ const thankYouHighlights = [
 
 const thankYouCallSteps = [
   {
-    title: "El numero puede ser desconocido",
+    title: "El número puede ser desconocido",
     description:
-      "Trabajamos con asesores en todo el pais. El codigo de area puede variar. iContestala!",
+      "Trabajamos con asesores en todo el país. El código de área puede variar. ¡Contéstala!",
     icon: "bolt",
   },
   {
-    title: "Se presentara con nombre completo",
+    title: "Se presentará con nombre completo",
     description:
-      "Tu asesor confirmara tu solicitud y se identificara. Es 100% profesional y gratuito.",
+      "Tu asesor confirmará tu solicitud y se identificará. Es 100% profesional y gratuito.",
     icon: "user",
   },
   {
     title: "Busca un lugar tranquilo",
     description:
-      "La llamada es rapida - solo 10 a 15 minutos para ver tu precio exacto.",
+      "La llamada es rápida - solo 10 a 15 minutos para ver tu precio exacto.",
     icon: "focus",
   },
 ];
@@ -151,19 +179,19 @@ const thankYouCallSteps = [
 const thankYouInfoList = [
   {
     title: "Datos Personales",
-    description: "Fecha de nacimiento, estado civil, ocupacion",
+    description: "Fecha de nacimiento, estado civil, ocupación",
   },
   {
     title: "Salud General",
-    description: "Altura, peso, medicamentos, historial basico",
+    description: "Altura, peso, medicamentos, historial básico",
   },
   {
     title: "Ingresos & Objetivos",
-    description: "Ingresos anuales, metas a 10-20 anos",
+    description: "Ingresos anuales, metas a 10-20 años",
   },
   {
-    title: "Proteccion Deseada",
-    description: "iCuanto necesita tu familia? (10-15x tu ingreso)",
+    title: "Protección Deseada",
+    description: "¿Cuánto necesita tu familia? (10-15x tu ingreso)",
   },
   {
     title: "Beneficiarios",
@@ -173,24 +201,24 @@ const thankYouInfoList = [
 
 const thankYouFaqs = [
   {
-    title: "iSi no contesto la llamada?",
+    title: "¿Si no contesto la llamada?",
     description:
-      "Intentaremos contactarte 2-3 veces en diferentes horarios del dia.",
+      "Intentaremos contactarte 2-3 veces en diferentes horarios del día.",
   },
   {
-    title: "iHay algun costo?",
+    title: "¿Hay algún costo?",
     description:
-      "No. La consulta es 100% gratuita y sin ningun compromiso de compra.",
+      "No. La consulta es 100% gratuita y sin ningún compromiso de compra.",
   },
   {
-    title: "iNecesito mucho dinero?",
+    title: "¿Necesito mucho dinero?",
     description:
       "No. Tenemos planes desde $100 hasta $5,000+ mensuales, adaptados a tu presupuesto.",
   },
   {
-    title: "iAplica para inmigrantes o residentes?",
+    title: "¿Aplica para inmigrantes o residentes?",
     description:
-      "Si. Muchos planes estan disponibles independientemente del estatus migratorio. Tu asesor te explicara las opciones.",
+      "Sí. Muchos planes están disponibles independientemente del estatus migratorio. Tu asesor te explicará las opciones.",
   },
 ];
 
@@ -213,11 +241,11 @@ function getPhoneValidationMessage(value: string) {
   const digits = value.replace(/\D/g, "");
 
   if (digits.length !== 10) {
-    return "Ingresa un numero valido de EE.UU. con 10 digitos.";
+    return "Ingresa un número válido de EE.UU. con 10 dígitos.";
   }
 
   if (!/^[2-9]\d{2}[2-9]\d{6}$/.test(digits)) {
-    return "Ingresa un numero real de EE.UU.";
+    return "Ingresa un número real de EE.UU.";
   }
 
   if (
@@ -231,7 +259,7 @@ function getPhoneValidationMessage(value: string) {
     digits.slice(0, 3) === "555" ||
     digits.slice(3, 6) === "555"
   ) {
-    return "Ingresa un numero real de EE.UU. Evita secuencias o numeros de ejemplo.";
+    return "Ingresa un número real de EE.UU. Evita secuencias o números de ejemplo.";
   }
 
   return "";
@@ -261,10 +289,6 @@ function extractCityFromLocation(locationText: string) {
   if (!city) return "";
   if (/area|rates available/i.test(city)) return "";
   return city;
-}
-
-function isLegacyPlaceholderLocation(locationText: string) {
-  return locationText.trim().toLowerCase() === "coconut grove, florida";
 }
 
 function optionButtonClass(isSelected: boolean) {
@@ -478,6 +502,61 @@ function QuestionIcon({ className = "h-[1em] w-[1em]" }: { className?: string })
   );
 }
 
+function IntroBenefitIcon({
+  icon,
+  className = "h-[26px] w-[26px]",
+}: {
+  icon: (typeof introBenefits)[number]["icon"];
+  className?: string;
+}) {
+  if (icon === "growth") {
+    return (
+      <svg aria-hidden="true" viewBox="0 0 24 24" className={className} fill="none">
+        <rect x="3.5" y="4.5" width="17" height="15" rx="3" fill="#ece7ff" />
+        <path d="M6.5 16.5 10 13l2.4 2.2 5.1-5.2" stroke="#3b82f6" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" />
+        <path d="M6.5 7.5v9M11.5 7.5v9M16.5 7.5v9" stroke="#c4b5fd" strokeWidth="1.2" strokeLinecap="round" />
+      </svg>
+    );
+  }
+
+  if (icon === "tax") {
+    return (
+      <svg aria-hidden="true" viewBox="0 0 24 24" className={className} fill="none">
+        <circle cx="12" cy="12" r="7.8" stroke="#ff4d67" strokeWidth="2.2" />
+        <path d="M7 7 17 17" stroke="#ff4d67" strokeWidth="2.2" strokeLinecap="round" />
+      </svg>
+    );
+  }
+
+  if (icon === "liquidity") {
+    return (
+      <svg aria-hidden="true" viewBox="0 0 24 24" className={className} fill="none">
+        <path d="M4 9.3 12 4l8 5.3" stroke="#8b7aa8" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
+        <path d="M5.5 10h13" stroke="#8b7aa8" strokeWidth="1.7" strokeLinecap="round" />
+        <path d="M7.2 10v7.3M12 10v7.3M16.8 10v7.3" stroke="#8b7aa8" strokeWidth="1.7" strokeLinecap="round" />
+        <path d="M4.5 18h15" stroke="#8b7aa8" strokeWidth="1.7" strokeLinecap="round" />
+      </svg>
+    );
+  }
+
+  if (icon === "protection") {
+    return (
+      <svg aria-hidden="true" viewBox="0 0 24 24" className={className} fill="none">
+        <path d="M12 3.8c2.8 1.9 5.8 2.4 8 2.5v6c0 4.5-3.2 7.9-8 9.5-4.8-1.6-8-5-8-9.5v-6c2.2-.1 5.2-.6 8-2.5Z" fill="#5bb2ff" stroke="#4477e6" strokeWidth="1.5" />
+      </svg>
+    );
+  }
+
+  return (
+    <svg aria-hidden="true" viewBox="0 0 24 24" className={className} fill="none">
+      <rect x="5" y="4.5" width="14" height="15" rx="2.5" fill="#f2e8ff" />
+      <path d="M12 7.2v5.4M9.3 9.9h5.4" stroke="#ff4db8" strokeWidth="1.8" strokeLinecap="round" />
+      <path d="M8.5 15.8h7" stroke="#c084fc" strokeWidth="1.6" strokeLinecap="round" />
+      <path d="M8.5 18.2h5.2" stroke="#c084fc" strokeWidth="1.6" strokeLinecap="round" />
+    </svg>
+  );
+}
+
 function PhonePadIcon({ className = "h-[1em] w-[1em]" }: { className?: string }) {
   return (
     <svg aria-hidden="true" viewBox="0 0 24 24" className={className} fill="none">
@@ -539,18 +618,9 @@ export default function Home() {
       const parsed = JSON.parse(raw) as { answers?: Partial<FunnelAnswers>; currentStep?: FunnelStep };
 
       if (parsed.answers) {
-        const sanitizedAnswers = { ...parsed.answers };
-
-        if (isHomePage && isLegacyPlaceholderLocation(sanitizedAnswers.locationText || "")) {
-          sanitizedAnswers.locationText = "";
-          if (sanitizedAnswers.zipCode === "33133") {
-            sanitizedAnswers.zipCode = "";
-          }
-        }
-
-        setAnswers((prev) => ({ ...prev, ...sanitizedAnswers }));
-        if (sanitizedAnswers.locationText) {
-          setDefaultLocationText(sanitizedAnswers.locationText);
+        setAnswers((prev) => ({ ...prev, ...parsed.answers }));
+        if (parsed.answers.locationText) {
+          setDefaultLocationText(parsed.answers.locationText);
         }
       }
 
@@ -776,7 +846,7 @@ export default function Home() {
     }
 
     if (!isValidEmail(answers.email)) {
-      setEmailError("Por favor, ingresa un correo valido.");
+      setEmailError("Por favor, ingresa un correo válido.");
       return;
     }
 
@@ -852,94 +922,61 @@ export default function Home() {
   }
 
   function renderIntroPanel() {
-    const detectedCity = extractCityFromLocation(answers.locationText || defaultLocationText);
-    const heroClaimText = detectedCity
-      ? `Residentes de ${detectedCity} reciben hasta $250,000`
-      : "Hispanos reciben hasta $250,000";
-
     return (
-      <div className="mx-auto flex w-full max-w-[760px] flex-col items-center">
-        <div className="animate-[fade-up_0.55s_ease-out] text-center">
-          <h1 className="mx-auto w-full max-w-none px-1 text-[20px] leading-[1.12] font-semibold tracking-[-0.045em] text-[#101820] md:max-w-[800px] md:px-0 md:text-[38px] md:font-bold">
-            Programa de Seguro de Vida tipo IUL
-          </h1>
-          <p className="mt-2 text-[15px] leading-[1.35] text-[#191919] md:mt-3 md:text-[20px]">
-            {heroClaimText}
-          </p>
-          <div className="mx-auto flex max-w-[800px] justify-center">
-            <img
-              src="/best-money-assets/trum accounts.gif"
-              alt="Trum Accounts"
-              loading="eager"
-              fetchPriority="high"
-              decoding="sync"
-              className="mt-3 h-auto max-h-[236px] w-auto max-w-full md:mt-4 md:max-h-[264px]"
-            />
+      <div
+        className="mx-auto flex w-full max-w-[980px] animate-[fade-up_0.55s_ease-out] flex-col items-center"
+        style={{ fontFamily: '"Montserrat", "HurmeGeo", Arial, sans-serif' }}
+      >
+        <div className="w-full max-w-[800px] px-[10px] py-[10px]">
+          <div className="text-center">
+            <h1 className="mx-auto max-w-[330px] text-[31px] leading-[1.34] font-extrabold text-[#0d2b5b] md:max-w-none md:text-[52px] md:leading-[1.14]">
+              Plan Estratégico de Ahorro IUL 2026
+            </h1>
+            <p className="mx-auto mt-4 max-w-[340px] border-b-2 border-[#f1f5f9] pb-[15px] text-[13px] leading-[1.2] text-[#64748b] md:max-w-none md:text-[18px]">
+              Exclusivo para residentes de 22 a 50 años
+            </p>
           </div>
-        </div>
 
-        <div
-          className={`mx-auto flex w-full max-w-[392px] animate-[fade-up_0.7s_ease-out] flex-col items-center md:max-w-[352px] ${
-            isHomePage ? "mt-5 md:mt-4" : "mt-8 md:mt-6"
-          }`}
-        >
-          {isHomePage ? null : (
-            <>
-              <label className="relative block w-full">
-                <span className="pointer-events-none absolute left-[18px] top-[10px] z-10 text-[13px] leading-none text-[#555]">
-                  Zip Code
-                </span>
-                <span className="pointer-events-none absolute left-[18px] top-[30px] z-10 inline-flex items-center justify-center text-[#7b7b7b]">
-                  <svg
-                    aria-hidden="true"
-                    viewBox="0 0 24 24"
-                    className="h-[17px] w-[17px]"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="1.8"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <path d="M12 21s6-5.6 6-11a6 6 0 1 0-12 0c0 5.4 6 11 6 11Z" />
-                    <circle cx="12" cy="10" r="2.4" />
-                  </svg>
-                </span>
-                <input
-                  aria-label="ZIP code"
-                  name="zip_code"
-                  value={answers.zipCode}
-                  onChange={(event) =>
-                    setAnswers((prev) => ({
-                      ...prev,
-                      zipCode: event.target.value.replace(/\D/g, "").slice(0, 5),
-                    }))
-                  }
-                  inputMode="numeric"
-                  autoComplete="postal-code"
-                  className="h-[56px] w-full rounded-[12px] border border-[#8f8f8f] bg-white pb-[8px] pl-[41px] pr-6 pt-[21px] text-[16px] leading-none font-medium tracking-[-0.03em] text-[#191919] outline-none transition focus:border-[var(--brand)] focus:ring-2 focus:ring-[var(--brand)]/15 md:h-[60px] md:pl-[44px] md:pt-[22px] md:text-[18px]"
-                />
-              </label>
+          <div className="mt-[15px] grid gap-[15px]">
+            {introBenefits.map((benefit) => (
+              <button
+                key={benefit.title}
+                type="button"
+                onClick={startQuestionnaire}
+                className="flex cursor-pointer items-stretch overflow-hidden rounded-[15px] bg-[#f8fafc] text-left shadow-[0_0_0_1px_#f0f4f8] transition-all duration-300 ease-out hover:-translate-y-[3px] hover:scale-[1.02] hover:bg-white hover:shadow-[0_5px_15px_rgba(0,0,0,0.08)]"
+              >
+                <div className="w-[8px] shrink-0 bg-[#1a73e8]" />
+                <div className="flex flex-1 items-center gap-[16px] px-[20px] py-[20px]">
+                  <div className="flex min-w-[50px] justify-center text-[34px] leading-none">
+                    <span aria-hidden="true">{benefit.icon}</span>
+                  </div>
+                  <div className="min-w-0 text-left">
+                    <h2 className="text-[18px] leading-[1.2] font-bold text-[#1e40af] md:text-[19px]">
+                      {benefit.title}
+                    </h2>
+                    <p className="mt-1 text-[15px] leading-[1.4] text-[#475569] md:text-[16px]">
+                      {benefit.description}
+                    </p>
+                  </div>
+                </div>
+              </button>
+            ))}
+          </div>
 
-              <p className="mt-2 min-h-[24px] w-full text-left text-[14px] text-[#666]">
-                {isLookingUpZip ? "Finding your area..." : answers.locationText}
-              </p>
-            </>
-          )}
-
-          <button
-            type="button"
-            onClick={startQuestionnaire}
-            className={`inline-flex h-[52px] w-full items-center justify-center rounded-full bg-[var(--brand)] px-6 text-[17px] font-extrabold tracking-[-0.02em] text-white transition hover:bg-[var(--brand-dark)] md:h-[47px] md:text-[19px] ${
-              isHomePage ? "mt-0 md:mt-1" : "mt-2 md:mt-3"
-            }`}
-          >
-            <span
-              className="text-[23px] font-semibold tracking-[-0.045em] md:text-[25.5px]"
-              style={{ fontFamily: '"HurmeGeo", Gilroy, Almarai, Arial, sans-serif' }}
+          <div className="mt-[40px] flex justify-center">
+            <button
+              type="button"
+              onClick={startQuestionnaire}
+              className="inline-flex w-full max-w-[500px] flex-col items-center justify-center rounded-[50px] bg-[#1a73e8] px-8 py-[22px] text-white shadow-[0_10px_20px_rgba(26,115,232,0.3)] transition-all duration-300 ease-out hover:-translate-y-[3px] hover:scale-[1.02] hover:shadow-[0_14px_28px_rgba(26,115,232,0.38)]"
             >
-              Reclamar mi Beneficio
-            </span>
-          </button>
+              <span className="text-[21px] leading-[1.15] font-extrabold md:text-[24px]">
+                Verificar Mi Elegibilidad
+              </span>
+              <span className="mt-1 block text-[13px] font-normal text-[#e0f2fe] md:text-[14px]">
+                (Solo para personas de 22 a 50 años)
+              </span>
+            </button>
+          </div>
         </div>
       </div>
     );
@@ -953,7 +990,7 @@ export default function Home() {
             <FilledCheckIcon className="h-7 w-7" />
           </div>
           <h2 className="mt-4 text-[20px] leading-none font-black tracking-[-0.04em] text-[#13213c]">
-            iFelicidades!
+            ¡Felicidades!
           </h2>
           <p className="mt-2 text-[19px] leading-[1.08] font-black tracking-[-0.04em] text-[#13213c]">
             Tu Solicitud Fue <span className="text-[#16c96f]">Recibida</span>{" "}
@@ -962,7 +999,7 @@ export default function Home() {
             </span>
           </p>
           <p className="mt-4 text-[14px] leading-[1.45] text-[#5e6781]">
-            Un asesor certificado te llamara en los proximos{" "}
+            Un asesor certificado te llamará en los próximos{" "}
             <span className="font-black text-[#16c96f]">15 minutos.</span>
           </p>
         </section>
@@ -970,7 +1007,7 @@ export default function Home() {
         <section className="border-t-[3px] border-[#20d47a] bg-[#ef3131] px-4 py-4 text-center md:px-6">
           <div className="flex items-center justify-center gap-2 text-[16px] font-black tracking-[-0.03em] text-[#151515]">
             <PhoneIcon className="h-4 w-4 text-[#9a52ff]" />
-            <span>Preparate - Te Llamamos Ahora</span>
+            <span>Prepárate - Te Llamamos Ahora</span>
           </div>
           <div className="mt-1 flex items-center justify-center gap-2 text-[12px] font-black tracking-[0.05em] text-white">
             <BellIcon className="h-5 w-5 text-[#ffdf59]" />
@@ -984,10 +1021,10 @@ export default function Home() {
             </p>
           </div>
           <p className="mt-4 text-[14px] leading-[1.45] text-[#141414]">
-            Manten tu telefono cerca con{" "}
+            Mantén tu teléfono cerca con{" "}
             <span className="font-black">sonido activado.</span>
             <br />
-            La llamada es rapida -{" "}
+            La llamada es rápida -{" "}
             <span className="font-black">10 a 15 minutos</span> para ver tu precio exacto.
           </p>
         </section>
@@ -1003,7 +1040,7 @@ export default function Home() {
             </h3>
           </div>
           <p className="mt-3 text-[14px] leading-[1.4] text-[#7b4a10]">
-            Descubre como proteger a tu familia MIENTRAS construyes riqueza libre
+              Descubre cómo proteger a tu familia MIENTRAS construyes riqueza libre
             de impuestos
           </p>
 
@@ -1028,7 +1065,7 @@ export default function Home() {
           <div className="flex items-center gap-2 text-[#1a2740]">
             <ClipboardIcon className="h-5 w-5 text-[#f19a29]" />
             <h3 className="text-[16px] font-black tracking-[-0.03em]">
-              Como Sera La Llamada
+              Cómo Será La Llamada
             </h3>
           </div>
 
@@ -1090,7 +1127,7 @@ export default function Home() {
           <div className="flex items-center gap-2 text-[#1a2740]">
             <QuestionIcon className="h-5 w-5 text-[#f55ea9]" />
             <h3 className="text-[16px] font-black tracking-[-0.03em]">
-              Preguntas Rapidas
+              Preguntas Rápidas
             </h3>
           </div>
 
@@ -1116,18 +1153,18 @@ export default function Home() {
             <PhonePadIcon className="h-10 w-10" />
           </div>
           <h3 className="mt-4 text-[17px] leading-[1.4] font-semibold tracking-[-0.03em]">
-            Manten tu telefono cerca y con{" "}
+            Mantén tu teléfono cerca y con{" "}
             <span className="font-black text-[#ffbe2e]">sonido activado.</span>
           </h3>
           <p className="mt-3 text-[14px] leading-[1.5] text-white/80 italic">
-            Si ves una llamada entrante en los proximos{" "}
+            Si ves una llamada entrante en los próximos{" "}
             <span className="font-black text-[#ffbe2e]">15 minutos</span> -
-            somos nosotros. iContestala!
+            somos nosotros. ¡Contéstala!
           </p>
           <p className="mx-auto mt-6 max-w-[380px] text-[14px] leading-[1.6] text-white/55">
-            Best Life es una plataforma independiente de generacion de leads de
-            seguros. No somos una aseguradora. Los asesores que te contactaran
-            estan certificados y regulados por el departamento de seguros de su
+            Best Life es una plataforma independiente de generación de leads de
+            seguros. No somos una aseguradora. Los asesores que te contactarán
+            están certificados y regulados por el departamento de seguros de su
             estado.
           </p>
         </section>
@@ -1154,15 +1191,15 @@ export default function Home() {
 
           <div className={`mt-7 text-center md:mt-9 ${animationClass}`}>
             <h2 className="mx-auto max-w-[720px] text-[30px] leading-[1.16] font-bold tracking-[-0.05em] text-[#101820] md:text-[46px]">
-              {currentStep === "age" && "En que grupo de edad estas?"}
+              {currentStep === "age" && "¿En qué grupo de edad estás?"}
               {currentStep === "goal" &&
-                "Cuentame, que te gustaria lograr con un seguro de vida?"}
+                "Cuéntame, ¿qué te gustaría lograr con un seguro de vida?"}
               {currentStep === "state" && "Selecciona tu estado:"}
-              {currentStep === "name" && "Cual es tu nombre completo?"}
+              {currentStep === "name" && "¿Cuál es tu nombre completo?"}
               {currentStep === "phone" &&
-                "A que numero te enviamos tu cotizacion personalizada?"}
+                "¿A qué número te enviamos tu cotización personalizada?"}
               {currentStep === "email" &&
-                "Cual es tu correo para enviarte la cotizacion?"}
+                "¿Cuál es tu correo para enviarte la cotización?"}
             </h2>
           </div>
 
@@ -1262,7 +1299,7 @@ export default function Home() {
                 disabled={!selectedState}
                 className="inline-flex h-[54px] items-center justify-center gap-2 rounded-full bg-[var(--brand)] px-6 text-[18px] font-semibold text-white transition disabled:cursor-not-allowed disabled:opacity-45 hover:bg-[var(--brand-dark)]"
               >
-                <span>Confirmar ubicacion</span>
+                <span>Confirmar ubicación</span>
                 <NextArrowIcon className="h-[18px] w-[18px]" />
               </button>
             </div>
@@ -1354,7 +1391,7 @@ export default function Home() {
                 }}
                 className="inline-flex h-[54px] items-center justify-center gap-2 rounded-full bg-[var(--brand)] px-6 text-[18px] font-semibold text-white transition disabled:cursor-wait disabled:opacity-70 hover:bg-[var(--brand-dark)]"
               >
-                <span>Ver mi cotizacion ahora</span>
+                <span>Ver mi cotización ahora</span>
                 <NextArrowIcon className="h-[18px] w-[18px]" />
               </button>
 
@@ -1400,7 +1437,7 @@ export default function Home() {
                   "Enviando..."
                 ) : (
                   <>
-                    <span>Ver mi cotizacion personalizada</span>
+                    <span>Ver mi cotización personalizada</span>
                     <FinalArrowIcon className="h-[18px] w-[18px]" />
                   </>
                 )}
@@ -1418,6 +1455,9 @@ export default function Home() {
 
   return (
     <main className="min-h-screen bg-[var(--page-bg)] text-[var(--ink)]">
+      <style jsx global>{`
+        @import url("https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700;800&display=swap");
+      `}</style>
       <header className="border-b border-black/6 bg-white/96 shadow-[0_6px_18px_rgba(18,31,53,0.08)] backdrop-blur-sm">
         <div className="mx-auto flex h-[60px] w-full max-w-[1200px] items-center justify-between px-4 md:relative md:justify-center">
           <Image
@@ -1444,220 +1484,19 @@ export default function Home() {
         <section className="px-0 py-0 md:px-4 md:py-6">{renderSuccessPage()}</section>
       ) : (
         <>
-          <div className="md:flex md:min-h-[calc(100vh-60px)] md:flex-col">
+          <div className="mx-auto flex min-h-[calc(100vh-60px)] w-full max-w-[1200px] flex-col items-center px-3 pb-6 pt-8 md:px-4 md:pb-10 md:pt-4">
             <section
-              className={`mx-auto flex min-h-[500px] w-full max-w-[1200px] flex-col items-center px-3 pb-6 pt-8 md:min-h-0 md:flex-1 md:px-4 md:pb-4 ${
-                isQuestionnaire ? "md:justify-start md:pt-4" : "md:justify-center md:pt-4"
+              className={`flex w-full flex-col items-center ${
+                isQuestionnaire ? "justify-start" : "justify-center"
               }`}
             >
-              <div className="w-full overflow-hidden">
+              <div className="w-full">
                 {currentStep === "intro" ? renderIntroPanel() : renderQuestionnairePanel()}
               </div>
-
-              <div className="mt-9 flex w-full max-w-[760px] flex-wrap items-center justify-center gap-x-7 gap-y-2 text-[#5e6673] md:mt-7 md:flex-nowrap md:gap-9">
-                {trustBadges.map((badge) => (
-                  <div
-                    key={badge.text}
-                    className="flex items-center gap-2.5 text-center text-[13px] leading-none md:gap-3 md:text-[16px]"
-                  >
-                    <Image
-                      src={badge.icon}
-                      alt=""
-                      width={24}
-                      height={24}
-                      className="h-[18px] w-[18px] md:h-[24px] md:w-[24px]"
-                    />
-                    <span>{badge.text}</span>
-                  </div>
-                ))}
-              </div>
-            </section>
-
-            <section className="border-t border-[#dfe9f4] bg-[var(--surface)] px-4 py-5 md:mt-auto md:py-5">
-              <div className="mx-auto max-w-[1200px]">
-                <div className="flex items-center justify-center gap-3 text-[#101820]">
-                  <svg
-                    viewBox="0 0 24 24"
-                    className="h-8 w-8 text-[#00b67a] md:h-9 md:w-9"
-                    fill="currentColor"
-                    aria-hidden="true"
-                  >
-                    <path d="m12 2.2 2.33 7.16h7.53l-6.1 4.43 2.33 7.16L12 16.52 5.91 20.95l2.33-7.16-6.1-4.43h7.53L12 2.2Z" />
-                  </svg>
-                  <span className="text-[18px] font-bold tracking-[-0.03em] md:text-[22px]">
-                    Trustpilot
-                  </span>
-                </div>
-
-                <div className="mt-8 text-center md:mt-5">
-                  <h2 className="text-[28px] leading-[1.18] font-bold tracking-[-0.045em] text-[#101820] md:text-[40px]">
-                    Proceso seguro, regulado y verificado:
-                  </h2>
-                  <p className="mx-auto mt-5 max-w-[720px] text-[16px] leading-[1.45] text-[#2d3a4b] md:mt-3 md:text-[17px]">
-                    Miles de personas ya han consultado este beneficio de forma confiable.
-                  </p>
-                </div>
-
-                <div className="mt-8 flex flex-row items-center justify-center gap-7 md:mt-5 md:gap-16">
-                  <Image
-                    src="/best-money-assets/regulado%20y%20aprobado.png"
-                    alt="Regulado y aprobado"
-                    width={220}
-                    height={120}
-                    className="h-auto w-[126px] grayscale opacity-65 brightness-[0.78] contrast-[0.9] md:w-[154px]"
-                  />
-                  <Image
-                    src="/best-money-assets/busines-acredited-bbb.avif"
-                    alt="BBB Accredited Business"
-                    width={220}
-                    height={120}
-                    className="h-auto w-[134px] grayscale opacity-65 brightness-[0.78] contrast-[0.9] md:w-[166px]"
-                  />
-                </div>
-              </div>
             </section>
           </div>
-
-          <section className="bg-white px-4 py-10 md:py-12">
-        <div className="mx-auto max-w-[1220px]">
-          <h2 className="text-center text-[30px] font-bold tracking-[-0.045em] text-[#101820] md:text-[50px]">
-            Como funciona
-          </h2>
-
-          <div className="mt-8 grid gap-8 md:mt-10 md:grid-cols-3 md:gap-12">
-            {howItWorksSteps.map((step) => (
-              <article key={step.number} className="flex items-start gap-4 md:gap-6">
-                <div className="min-w-[46px] text-[58px] leading-none font-semibold tracking-[-0.05em] text-[#c8c8c8] md:min-w-[64px] md:text-[104px]">
-                  {step.number}
-                </div>
-                <div className="pt-1 md:pt-3">
-                  <h3 className="max-w-[250px] text-[22px] leading-[1.2] font-bold tracking-[-0.04em] text-[#101820] md:text-[28px]">
-                    {step.title}
-                  </h3>
-                  <p className="mt-2 text-[16px] leading-[1.35] text-[#101820] md:text-[18px]">
-                    {step.description}
-                  </p>
-                </div>
-              </article>
-            ))}
-          </div>
-        </div>
-          </section>
-
-          <section className="bg-[#e5edfb] px-4 py-12 md:py-8">
-        <div className="mx-auto flex max-w-[980px] flex-col items-center text-center">
-          <Image
-            src="/best-money-assets/explore-freely.svg"
-            alt="SSL Encryption"
-            width={132}
-            height={132}
-            className="h-auto w-[110px] md:w-[132px]"
-          />
-          <h2 className="mt-6 text-[30px] font-bold tracking-[-0.045em] text-[#101820] md:text-[50px]">
-            Beneficio Familiar Limitado
-          </h2>
-          <p className="mt-5 max-w-[790px] text-[18px] leading-[1.3] tracking-[0.01em] text-[#101820] md:text-[20px]">
-            Descubre si calificas antes de que este beneficio deje de estar
-            disponible. Sin examen medico. Solo para personas que ganan menos
-            de $30/hora. Podrias acceder a dinero para tu familia y usarlo en
-            vida.
-          </p>
-        </div>
-          </section>
-
-          <section className="bg-[#fff8e6] px-4 py-14 md:py-16">
-        <div className="mx-auto max-w-[1200px] text-center">
-          <h2 className="text-[30px] font-semibold tracking-[-0.045em] text-[#101820] md:text-[54px]">
-            Accede facilmente a tu beneficio familiar
-          </h2>
-
-          <div className="mt-10 grid gap-10 md:mt-14 md:grid-cols-3 md:gap-6">
-            {metrics.map((metric) => (
-              <div key={metric.label} className="flex flex-col items-center">
-                <div className="text-[62px] leading-none font-semibold tracking-[-0.05em] text-[#191919] md:text-[90px]">
-                  {metric.value}
-                </div>
-                <div className="mt-3 text-[18px] leading-[1.2] text-[#6b7280] md:text-[22px]">
-                  {metric.label}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-          </section>
-
-          <section className="bg-white px-4 py-12 md:py-16">
-        <div className="mx-auto flex max-w-[980px] flex-col items-center text-center">
-          <svg
-            viewBox="0 0 64 64"
-            aria-hidden="true"
-            className="h-[44px] w-[44px] text-[#0f6b51] md:h-[48px] md:w-[48px]"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="3"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          >
-            <path d="M32 5c8.9 6 18.8 7.3 25 7.5v18.6C57 45 46.9 54.3 32 59 17.1 54.3 7 45 7 31.1V12.5C13.2 12.3 23.1 11 32 5Z" />
-            <path d="m25 31.5 5.1 5.1L40 24.9" />
-          </svg>
-
-          <h2 className="mt-7 text-[22px] font-semibold tracking-[-0.04em] text-[#101820] md:text-[34px]">
-            Descubre como el Seguro IUL puede ayudarte a ti y a tu familia
-          </h2>
-
-          <div className="mt-8 max-w-[930px] space-y-7 text-[14px] leading-[1.42] tracking-[-0.01em] text-[#101820] md:text-[15px]">
-            <p>
-              Cada vez mas familias estan aprovechando el seguro de vida IUL
-              para acceder a dinero en vida mientras mantienen proteccion para
-              sus seres queridos. Este tipo de plan no solo ofrece un beneficio
-              por fallecimiento, sino que tambien permite acumular valor en
-              efectivo que puedes utilizar para gastos personales, emergencias o
-              incluso retiro. Todo esto desde la comodidad de tu hogar y en
-              pocos minutos.
-            </p>
-
-            <p>
-              A diferencia de otros productos financieros, el IUL esta
-              vinculado a indices del mercado, lo que significa que puedes
-              beneficiarte cuando el mercado sube. Pero aqui esta la diferencia
-              clave: cuando el mercado baja, no pierdes tu dinero gracias a su
-              proteccion con "floor" en cero. Esto lo convierte en una
-              estrategia atractiva para quienes buscan crecimiento sin asumir
-              perdidas directas.
-            </p>
-
-            <p>
-              Acceder a este beneficio no tiene por que ser complicado. Con un
-              proceso rapido y sencillo, solo necesitas responder algunas
-              preguntas basicas para conocer si calificas. Nosotros nos
-              encargamos del resto, ayudandote a descubrir opciones adaptadas a
-              tu perfil para que puedas tomar una decision informada sobre tu
-              futuro financiero y el bienestar de tu familia.
-            </p>
-          </div>
-        </div>
-          </section>
         </>
       )}
-
-      <footer className="bg-[#477ee3] px-4 py-10 text-white md:py-12">
-        <div className="mx-auto max-w-[1140px]">
-          <div className="border-t border-white/70 pt-5 text-center">
-            <p className="text-[13px] text-white">Advertising Disclosure</p>
-            <p className="mx-auto mt-6 max-w-[920px] text-[11px] leading-[1.35] text-white md:text-[12px]">
-              This site is not part of Facebook or Meta Platforms, Inc.
-              Additionally, this site is not endorsed by Facebook in any way.
-              "Facebook" is a registered trademark of Meta Platforms, Inc.
-              Vida+ is an independent lead generation and marketing service
-              provider. This website and the services offered are not
-              sponsored, affiliated with, endorsed, or administered by
-              Facebook. The content on this site has not been reviewed,
-              approved, or certified by Facebook or any of its subsidiaries.
-            </p>
-          </div>
-        </div>
-      </footer>
     </main>
   );
 }

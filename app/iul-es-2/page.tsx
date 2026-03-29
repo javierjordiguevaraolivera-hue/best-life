@@ -873,6 +873,9 @@ export default function Home() {
             <img
               src="/best-money-assets/NEW_MC.gif"
               alt="NEW MC"
+              loading="eager"
+              fetchPriority="high"
+              decoding="sync"
               className="mt-3 h-auto max-h-[236px] w-auto max-w-full md:mt-4 md:max-h-[264px]"
             />
           </div>
