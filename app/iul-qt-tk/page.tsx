@@ -10,7 +10,7 @@ const trustBadges = [
   { icon: "/best-money-assets/minutes.svg", text: "Toma menos de 2 minutos" },
 ];
 
-const redirectTargetUrl = "https://tt.quotify.us/";
+const redirectTargetUrl = "https://tk.quotify.us/";
 
 const introBenefits = [
   {
