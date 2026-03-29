@@ -608,7 +608,6 @@ export default function Home() {
     : "animate-[survey-question-in_0.42s_cubic-bezier(0.22,0.61,0.36,1)]";
 
   const normalizedPhone = useMemo(() => answers.phoneNumber.replace(/\D/g, ""), [answers.phoneNumber]);
-
   useEffect(() => {
     try {
       const raw = window.localStorage.getItem(storageKeyValue);
@@ -827,7 +826,7 @@ export default function Home() {
     transitionTo("age", "forward");
   }
 
-  function redirectToOffer() {
+  function getRedirectHref() {
     const targetUrl = new URL(redirectTargetUrl);
     const incomingParams = new URLSearchParams(window.location.search);
 
@@ -835,13 +834,12 @@ export default function Home() {
       targetUrl.searchParams.append(key, value);
     });
 
-    window.setTimeout(() => {
-      try {
-        window.top?.location.assign(targetUrl.toString());
-      } catch {
-        window.location.assign(targetUrl.toString());
-      }
-    }, 120);
+    return targetUrl.toString();
+  }
+
+  function redirectToOffer(event: React.MouseEvent<HTMLElement>) {
+    event.preventDefault();
+    window.location.href = getRedirectHref();
   }
 
   function handleDirectChoice<K extends keyof FunnelAnswers>(
@@ -958,9 +956,9 @@ export default function Home() {
 
           <div className="mt-[15px] grid gap-[15px]">
             {introBenefits.map((benefit) => (
-              <button
+              <a
                 key={benefit.title}
-                type="button"
+                href={redirectTargetUrl}
                 onClick={redirectToOffer}
                 className="flex cursor-pointer items-stretch overflow-hidden rounded-[15px] bg-[#f8fafc] text-left shadow-[0_0_0_1px_#f0f4f8] transition-all duration-300 ease-out hover:-translate-y-[3px] hover:scale-[1.02] hover:bg-white hover:shadow-[0_5px_15px_rgba(0,0,0,0.08)]"
               >
@@ -978,23 +976,23 @@ export default function Home() {
                     </p>
                   </div>
                 </div>
-              </button>
+              </a>
             ))}
           </div>
 
           <div className="mt-[40px] flex justify-center">
-            <button
-              type="button"
+            <a
+              href={redirectTargetUrl}
               onClick={redirectToOffer}
               className="inline-flex w-full max-w-[500px] flex-col items-center justify-center rounded-[50px] bg-[#1a73e8] px-8 py-[22px] text-white shadow-[0_10px_20px_rgba(26,115,232,0.3)] transition-all duration-300 ease-out hover:-translate-y-[3px] hover:scale-[1.02] hover:shadow-[0_14px_28px_rgba(26,115,232,0.38)]"
             >
-              <span className="text-[21px] leading-[1.15] font-extrabold md:text-[24px]">
+              <span className="text-[21px] leading-[1.15] font-extrabold text-white md:text-[24px]">
                 Verificar Mi Elegibilidad
               </span>
               <span className="mt-1 block text-[13px] font-normal text-[#e0f2fe] md:text-[14px]">
                 (Solo para personas de 22 a 50 años)
               </span>
-            </button>
+            </a>
           </div>
         </div>
       </div>
