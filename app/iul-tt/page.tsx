@@ -797,7 +797,7 @@ export default function Home() {
 
     trackedLeadNonceRef.current = leadEventNonce;
     trackingWindow.fbq?.("track", "Lead");
-    trackingWindow.ttq?.track?.("CompleteRegistration");
+    trackingWindow.ttq?.track?.("Lead");
   }, [currentStep, leadEventNonce, successHash]);
 
   function transitionTo(nextStep: FunnelStep, direction: "forward" | "backward") {
