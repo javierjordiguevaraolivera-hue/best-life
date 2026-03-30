@@ -23,6 +23,9 @@ export default function RootLayout({
       <body>
         <Script id="meta-pixel-base" strategy="beforeInteractive">
           {`
+            var __metaPixelId = window.location.pathname === '/iul-3560-mc'
+              ? '1532513301232175'
+              : '980723860687387';
             !function(f,b,e,v,n,t,s)
             {if(f.fbq)return;n=f.fbq=function(){n.callMethod?
             n.callMethod.apply(n,arguments):n.queue.push(arguments)};
@@ -31,7 +34,7 @@ export default function RootLayout({
             t.src=v;s=b.getElementsByTagName(e)[0];
             s.parentNode.insertBefore(t,s)}(window, document,'script',
             'https://connect.facebook.net/en_US/fbevents.js');
-            fbq('init', '980723860687387');
+            fbq('init', __metaPixelId);
             fbq('track', 'PageView');
           `}
         </Script>
