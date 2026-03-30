@@ -15,7 +15,7 @@ const redirectTargetUrl = "https://www.jk8gcxs.com/7659ZZ3/79JQ12F/";
 const introBenefits = [
   {
     icon: "📈",
-    title: "Ahorro con Interés Compuesto",
+    title: "Ahorro + Interés Compuesto",
     description: "Maximiza tus fondos con rendimientos de hasta el 9.5% anual.",
   },
   {
@@ -36,7 +36,7 @@ const introBenefits = [
   {
     icon: "🏥",
     title: "Beneficios en Vida",
-    description: "Accede a tu dinero ante emergencias o necesidades importantes.",
+    description: "Accede a tu dinero ante emergencias o necesidades.",
   },
 ];
 
