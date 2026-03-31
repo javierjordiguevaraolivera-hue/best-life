@@ -84,6 +84,60 @@ const stateOptions = [
   "Virginia", "Washington", "West Virginia", "Wisconsin", "Wyoming", "District of Columbia",
 ];
 
+const metaStateCodes: Record<string, string> = {
+  Alabama: "al",
+  Alaska: "ak",
+  Arizona: "az",
+  Arkansas: "ar",
+  California: "ca",
+  Colorado: "co",
+  Connecticut: "ct",
+  Delaware: "de",
+  Florida: "fl",
+  Georgia: "ga",
+  Hawaii: "hi",
+  Idaho: "id",
+  Illinois: "il",
+  Indiana: "in",
+  Iowa: "ia",
+  Kansas: "ks",
+  Kentucky: "ky",
+  Louisiana: "la",
+  Maine: "me",
+  Maryland: "md",
+  Massachusetts: "ma",
+  Michigan: "mi",
+  Minnesota: "mn",
+  Mississippi: "ms",
+  Missouri: "mo",
+  Montana: "mt",
+  Nebraska: "ne",
+  Nevada: "nv",
+  "New Hampshire": "nh",
+  "New Jersey": "nj",
+  "New Mexico": "nm",
+  "New York": "ny",
+  "North Carolina": "nc",
+  "North Dakota": "nd",
+  Ohio: "oh",
+  Oklahoma: "ok",
+  Oregon: "or",
+  Pennsylvania: "pa",
+  "Rhode Island": "ri",
+  "South Carolina": "sc",
+  "South Dakota": "sd",
+  Tennessee: "tn",
+  Texas: "tx",
+  Utah: "ut",
+  Vermont: "vt",
+  Virginia: "va",
+  Washington: "wa",
+  "West Virginia": "wv",
+  Wisconsin: "wi",
+  Wyoming: "wy",
+  "District of Columbia": "dc",
+};
+
 type FunnelStep =
   | "intro"
   | "age"
@@ -117,17 +171,6 @@ const stepOrder: FunnelStep[] = [
   "phone",
   "success",
 ];
-
-const progressByStep: Record<FunnelStep, number | null> = {
-  intro: null,
-  age: null,
-  goal: 32,
-  state: 52,
-  name: 67,
-  phone: 97,
-  email: 97,
-  success: 100,
-};
 
 const emptyAnswers: FunnelAnswers = {
   zipCode: "",
@@ -290,10 +333,130 @@ function extractCityFromLocation(locationText: string) {
   return city;
 }
 
-function optionButtonClass(isSelected: boolean) {
+function normalizeMetaText(value: string) {
+  return value
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+}
+
+function normalizeMetaName(value: string) {
+  return normalizeMetaText(value).replace(/[^a-z]/g, "");
+}
+
+function normalizeMetaCity(value: string) {
+  return normalizeMetaText(value).replace(/[^a-z]/g, "");
+}
+
+function normalizeMetaEmail(value: string) {
+  return value.trim().toLowerCase();
+}
+
+function normalizeMetaPhone(value: string) {
+  const digits = value.replace(/\D/g, "");
+
+  if (digits.length === 10) {
+    return `1${digits}`;
+  }
+
+  if (digits.length === 11 && digits.startsWith("1")) {
+    return digits;
+  }
+
+  return digits;
+}
+
+function getAgeRangeMidpoint(ageGroup: string) {
+  switch (ageGroup) {
+    case "25 a 34":
+      return 30;
+    case "35 a 44":
+      return 40;
+    case "45 a 54":
+      return 50;
+    case "55 a 65":
+      return 60;
+    case "65+":
+      return 65;
+    default:
+      return undefined;
+  }
+}
+
+async function sha256Hex(value: string) {
+  const digest = await crypto.subtle.digest(
+    "SHA-256",
+    new TextEncoder().encode(value)
+  );
+
+  return Array.from(new Uint8Array(digest))
+    .map((byte) => byte.toString(16).padStart(2, "0"))
+    .join("");
+}
+
+async function hashMetaFields(fields: Record<string, string>) {
+  const entries = await Promise.all(
+    Object.entries(fields).map(async ([key, value]) => [key, await sha256Hex(value)] as const)
+  );
+
+  return Object.fromEntries(entries);
+}
+
+async function buildMetaLeadTrackingData(args: {
+  answers: FunnelAnswers;
+  normalizedPhone: string;
+  deviceId: string;
+}) {
+  const stateName = args.answers.state || args.answers.detectedState;
+  const stateCode = metaStateCodes[stateName] || "";
+  const city = extractCityFromLocation(args.answers.locationText);
+  const zipCode = args.answers.zipCode.trim();
+  const userDataToHash = Object.fromEntries(
+    Object.entries({
+      em: normalizeMetaEmail(args.answers.email),
+      ph: normalizeMetaPhone(args.normalizedPhone),
+      fn: normalizeMetaName(args.answers.firstName),
+      ln: normalizeMetaName(args.answers.lastName),
+      ct: city ? normalizeMetaCity(city) : "",
+      st: stateCode,
+      zp: zipCode,
+      country: "us",
+      external_id: args.deviceId.trim().toLowerCase(),
+    }).filter(([, value]) => value)
+  ) as Record<string, string>;
+
+  const userData =
+    Object.keys(userDataToHash).length > 0
+      ? await hashMetaFields(userDataToHash)
+      : {};
+
+  const customData = Object.fromEntries(
+    Object.entries({
+      content_name: "iul_v2_lead",
+      lead_type: "iul",
+      status: "submitted",
+      age_range: args.answers.ageGroup,
+      age_range_midpoint: getAgeRangeMidpoint(args.answers.ageGroup),
+      insurance_goal: args.answers.insuranceGoal,
+      state: stateCode || stateName || undefined,
+      city: city || undefined,
+      zip_code: zipCode || undefined,
+      country: "us",
+    }).filter(([, value]) => value !== "" && value != null)
+  );
+
+  return { userData, customData };
+}
+
+function optionButtonClass(isSelected: boolean, isRecommended = false) {
   return [
     "flex min-h-[62px] w-full items-center rounded-[16px] border bg-white px-5 text-left text-[17px] tracking-[-0.03em] text-[#101820] shadow-[0_4px_10px_rgba(16,24,32,0.08)] transition",
-    isSelected ? "border-[var(--brand)] shadow-[0_0_0_1px_var(--brand)]" : "border-[#9c9c9c] hover:border-[#6f6f6f]",
+    isSelected
+      ? "border-[var(--brand)] shadow-[0_0_0_1px_var(--brand)]"
+      : isRecommended
+        ? "border-[#9ec5ff] bg-[#f7fbff] shadow-[0_0_0_1px_rgba(26,115,232,0.18),0_4px_10px_rgba(16,24,32,0.08)] hover:border-[#78adff]"
+        : "border-[#9c9c9c] hover:border-[#6f6f6f]",
   ].join(" ");
 }
 
@@ -592,18 +755,27 @@ export default function Home() {
   const transitionTimeoutRef = useRef<number | null>(null);
   const trackedLeadNonceRef = useRef<string | null>(null);
 
-  const progress = progressByStep[currentStep];
   const isSuccessPage = currentStep === "success";
   const isQuestionnaire = currentStep !== "intro";
   const isHomePage = pathname === "/";
   const pageValue = isHomePage ? "home" : pathname;
   const storageKeyValue = useMemo(() => `best-money-funnel-v1:${pageValue}`, [pageValue]);
   const successHash = "#gracias";
+  const recommendedAgeOption = answers.ageGroup ? "" : "35 a 44";
+  const recommendedGoalOption = answers.insuranceGoal ? "" : "Ahorrar e invertir";
   const detectedUsState = stateOptions.includes(answers.detectedState)
     ? answers.detectedState
     : "";
   const resolvedUsState = stateOptions.includes(answers.state) ? answers.state : "";
   const shouldAskState = !resolvedUsState && !detectedUsState;
+  const visibleQuestionSteps = shouldAskState
+    ? (["age", "goal", "state", "name", "phone"] as FunnelStep[])
+    : (["age", "goal", "name", "phone"] as FunnelStep[]);
+  const currentQuestionIndex = visibleQuestionSteps.indexOf(currentStep);
+  const progress =
+    currentQuestionIndex >= 0
+      ? ((currentQuestionIndex + 1) / visibleQuestionSteps.length) * 100
+      : null;
   const selectedState = resolvedUsState || detectedUsState || "Florida";
   const animationClass = isTransitioningOut
     ? "animate-[survey-question-out_0.18s_cubic-bezier(0.4,0,1,1)_forwards]"
@@ -798,12 +970,38 @@ export default function Home() {
       typeof globalThis & {
         fbq?: (...args: unknown[]) => void;
         ttq?: { track?: (...args: unknown[]) => void };
+        __metaPixelId?: string;
       };
 
     trackedLeadNonceRef.current = leadEventNonce;
-    trackingWindow.fbq?.("track", "Lead");
-    trackingWindow.ttq?.track?.("CompleteRegistration");
-  }, [currentStep, leadEventNonce, successHash]);
+    void (async () => {
+      try {
+        const metaPixelId = trackingWindow.__metaPixelId || "980723860687387";
+        const deviceId = getOrCreateDeviceId();
+        const { userData, customData } = await buildMetaLeadTrackingData({
+          answers,
+          normalizedPhone,
+          deviceId,
+        });
+
+        if (Object.keys(userData).length > 0) {
+          trackingWindow.fbq?.("init", metaPixelId, userData);
+        }
+
+        trackingWindow.fbq?.("track", "Lead", customData);
+      } catch {
+        trackingWindow.fbq?.("track", "Lead");
+      } finally {
+        trackingWindow.ttq?.track?.("CompleteRegistration");
+      }
+    })();
+  }, [
+    answers,
+    currentStep,
+    leadEventNonce,
+    normalizedPhone,
+    successHash,
+  ]);
 
   useEffect(() => {
     if (currentStep !== "state" || shouldAskState) return;
@@ -967,11 +1165,19 @@ export default function Home() {
     }
 
     return (
-      <div className="w-full max-w-[300px] rounded-full bg-[#d9d9d9]">
+      <div className="relative w-full max-w-[300px] overflow-hidden rounded-full bg-[#d9d9d9]">
         <div
           className="h-[8px] rounded-full bg-[var(--brand)] transition-[width] duration-300"
           style={{ width: `${progress}%` }}
         />
+        {visibleQuestionSteps.slice(1).map((_, index) => (
+          <span
+            key={index}
+            aria-hidden="true"
+            className="absolute top-0 h-full w-px bg-white/55"
+            style={{ left: `${((index + 1) / visibleQuestionSteps.length) * 100}%` }}
+          />
+        ))}
       </div>
     );
   }
@@ -1265,7 +1471,10 @@ export default function Home() {
                   key={option}
                   type="button"
                   onClick={() => handleDirectChoice("ageGroup", option, "goal")}
-                  className={optionButtonClass(answers.ageGroup === option)}
+                  className={optionButtonClass(
+                    answers.ageGroup === option,
+                    option === recommendedAgeOption
+                  )}
                 >
                   {option}
                 </button>
@@ -1282,7 +1491,10 @@ export default function Home() {
                   onClick={() =>
                     handleDirectChoice("insuranceGoal", option, shouldAskState ? "state" : "name")
                   }
-                  className={optionButtonClass(answers.insuranceGoal === option)}
+                  className={optionButtonClass(
+                    answers.insuranceGoal === option,
+                    option === recommendedGoalOption
+                  )}
                 >
                   {option}
                 </button>
@@ -1464,7 +1676,14 @@ export default function Home() {
                 className="inline-flex h-[54px] items-center justify-center gap-2 rounded-full bg-[var(--brand)] px-6 text-[18px] font-semibold text-white transition disabled:cursor-wait disabled:opacity-70 hover:bg-[var(--brand-dark)]"
               >
                 <span>Ver mi cotización ahora</span>
-                <NextArrowIcon className="h-[18px] w-[18px]" />
+                {isSubmittingLead ? (
+                  <span
+                    aria-hidden="true"
+                    className="h-[16px] w-[16px] rounded-full border-2 border-white/35 border-t-white animate-spin"
+                  />
+                ) : (
+                  <NextArrowIcon className="h-[18px] w-[18px]" />
+                )}
               </button>
 
               <p className="min-h-[22px] text-[14px] text-[#d14c4c]">
