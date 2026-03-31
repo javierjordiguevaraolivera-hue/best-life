@@ -1066,7 +1066,7 @@ export default function Home() {
             </div>
           </div>
 
-          <div className="relative z-10 mt-[40px] flex justify-center">
+          <div className="relative z-10 mt-[32px] flex justify-center">
             <a
               href={redirectTargetUrl}
               onClick={redirectToOffer}
@@ -1082,7 +1082,7 @@ export default function Home() {
           </div>
 
           {showIntroTrustBadges ? (
-            <div className="relative z-0 -mt-1 flex items-center justify-center gap-3 md:hidden">
+            <div className="relative z-0 mt-3 flex items-center justify-center gap-3 md:hidden">
               <div className="flex h-[58px] w-[138px] items-center justify-center rounded-[14px] border border-black/6 bg-white/72 px-3 shadow-[0_8px_20px_rgba(16,24,32,0.04)]">
                 <Image
                   src="/best-money-assets/insigni%20aoprovado%20y%20verificado.png"
