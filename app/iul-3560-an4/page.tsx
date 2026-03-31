@@ -941,7 +941,7 @@ export default function Home() {
       >
         <div className="w-full max-w-[800px] px-[10px] py-[10px]">
           <div className="text-center">
-            <h1 className="mx-auto max-w-[330px] text-[31px] leading-[1.34] font-extrabold text-[#0d2b5b] md:max-w-none md:text-[52px] md:leading-[1.14]">
+            <h1 className="mx-auto max-w-[330px] text-[31px] leading-[1.34] font-semibold text-[#0d2b5b] md:max-w-none md:text-[52px] md:leading-[1.14] md:font-extrabold">
               Secreto Financiero IUL 2026 en EE.UU.
             </h1>
           </div>
@@ -1490,7 +1490,7 @@ export default function Home() {
         <section className="px-0 py-0 md:px-4 md:py-6">{renderSuccessPage()}</section>
       ) : (
         <>
-          <div className="mx-auto flex min-h-[calc(100vh-60px)] w-full max-w-[1200px] flex-col items-center px-3 pb-6 pt-8 md:px-4 md:pb-10 md:pt-4">
+          <div className="mx-auto flex min-h-[calc(100vh-60px)] w-full max-w-[1200px] flex-col items-center px-3 pb-6 pt-6 md:px-4 md:pb-10 md:pt-4">
             <section
               className={`flex w-full flex-col items-center ${
                 isQuestionnaire ? "justify-start" : "justify-center"
