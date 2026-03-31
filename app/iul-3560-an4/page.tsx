@@ -573,6 +573,8 @@ function PhonePadIcon({ className = "h-[1em] w-[1em]" }: { className?: string })
 
 export default function Home() {
   const pathname = usePathname();
+  const headerRef = useRef<HTMLElement | null>(null);
+  const introContentRef = useRef<HTMLDivElement | null>(null);
   const [currentStep, setCurrentStep] = useState<FunnelStep>("intro");
   const [slideDirection, setSlideDirection] = useState<"forward" | "backward">("forward");
   const [panelKey, setPanelKey] = useState(0);
@@ -587,6 +589,8 @@ export default function Home() {
   const [submitError, setSubmitError] = useState("");
   const [isSubmittingLead, setIsSubmittingLead] = useState(false);
   const [leadEventNonce, setLeadEventNonce] = useState<string | null>(null);
+  const [showIntroTrustBadges, setShowIntroTrustBadges] = useState(false);
+  const [anchorIntroToBottom, setAnchorIntroToBottom] = useState(false);
   const transitionTimeoutRef = useRef<number | null>(null);
   const trackedLeadNonceRef = useRef<string | null>(null);
 
@@ -796,6 +800,37 @@ export default function Home() {
     trackingWindow.ttq?.track?.("CompleteRegistration");
   }, [currentStep, leadEventNonce, successHash]);
 
+  useEffect(() => {
+    if (currentStep !== "intro") {
+      setShowIntroTrustBadges(false);
+      setAnchorIntroToBottom(false);
+      return;
+    }
+
+    const measureIntroLayout = () => {
+      const viewportWidth = window.innerWidth;
+      const headerHeight = headerRef.current?.offsetHeight ?? 60;
+      const introHeight = introContentRef.current?.offsetHeight ?? 0;
+      const badgeAllowance = 76;
+      const availableHeight = window.innerHeight - headerHeight - 20;
+      const isMobileWidth = viewportWidth < 768;
+      const widthAllowsBadges = viewportWidth >= 360;
+      const fitsWithBadges = introHeight > 0 && introHeight + badgeAllowance <= availableHeight;
+      const shouldShowBadges = isMobileWidth && widthAllowsBadges && fitsWithBadges;
+
+      setShowIntroTrustBadges(shouldShowBadges);
+      setAnchorIntroToBottom(isMobileWidth && !shouldShowBadges);
+    };
+
+    const rafId = window.requestAnimationFrame(measureIntroLayout);
+    window.addEventListener("resize", measureIntroLayout);
+
+    return () => {
+      window.cancelAnimationFrame(rafId);
+      window.removeEventListener("resize", measureIntroLayout);
+    };
+  }, [currentStep]);
+
   function transitionTo(nextStep: FunnelStep, direction: "forward" | "backward") {
     setSlideDirection(direction);
     setIsTransitioningOut(true);
@@ -936,6 +971,7 @@ export default function Home() {
   function renderIntroPanel() {
     return (
       <div
+        ref={introContentRef}
         className="mx-auto flex w-full max-w-[980px] animate-[fade-up_0.55s_ease-out] flex-col items-center"
         style={{ fontFamily: '"Montserrat", "HurmeGeo", Arial, sans-serif' }}
       >
@@ -1019,6 +1055,29 @@ export default function Home() {
               </span>
             </a>
           </div>
+
+          {showIntroTrustBadges ? (
+            <div className="mt-4 flex items-center justify-center gap-3 md:hidden">
+              <div className="flex h-[58px] w-[138px] items-center justify-center rounded-[14px] border border-black/6 bg-white/72 px-3 shadow-[0_8px_20px_rgba(16,24,32,0.04)]">
+                <Image
+                  src="/best-money-assets/insigni%20aoprovado%20y%20verificado.png"
+                  alt="Aprobado y verificado"
+                  width={112}
+                  height={56}
+                  className="h-auto w-[102px] grayscale opacity-55"
+                />
+              </div>
+              <div className="flex h-[58px] w-[138px] items-center justify-center rounded-[14px] border border-black/6 bg-white/72 px-3 shadow-[0_8px_20px_rgba(16,24,32,0.04)]">
+                <Image
+                  src="/best-money-assets/busines-acredited-bbb.avif"
+                  alt="BBB Accredited"
+                  width={110}
+                  height={42}
+                  className="h-auto w-[98px] grayscale opacity-55"
+                />
+              </div>
+            </div>
+          ) : null}
         </div>
       </div>
     );
@@ -1500,16 +1559,7 @@ export default function Home() {
       <style jsx global>{`
         @import url("https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700;800&display=swap");
       `}</style>
-      <div className="pointer-events-none fixed inset-0 z-0 overflow-hidden">
-        <Image
-          src="/best-money-assets/insigni%20aoprovado%20y%20verificado.png"
-          alt=""
-          width={520}
-          height={520}
-          className="absolute top-1/2 left-1/2 w-[320px] -translate-x-1/2 -translate-y-1/2 rotate-[-18deg] grayscale opacity-[0.065] md:w-[420px]"
-        />
-      </div>
-      <header className="relative z-10 border-b border-black/6 bg-white/96 shadow-[0_6px_18px_rgba(18,31,53,0.08)] backdrop-blur-sm">
+      <header ref={headerRef} className="relative z-10 border-b border-black/6 bg-white/96 shadow-[0_6px_18px_rgba(18,31,53,0.08)] backdrop-blur-sm">
         <div className="mx-auto flex h-[60px] w-full max-w-[1200px] items-center justify-between px-4 md:relative md:justify-center">
           <Image
             src="/best-money-assets/logo-best-life.png"
@@ -1538,7 +1588,7 @@ export default function Home() {
           <div className="relative z-10 mx-auto flex min-h-[calc(100vh-60px)] w-full max-w-[1200px] flex-col items-center px-3 pb-6 pt-6 md:px-4 md:pb-10 md:pt-4">
             <section
               className={`flex w-full flex-col items-center ${
-                isQuestionnaire ? "justify-start" : "justify-center"
+                isQuestionnaire ? "justify-start" : anchorIntroToBottom ? "justify-end" : "justify-center"
               }`}
             >
               <div className="w-full">
