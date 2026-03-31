@@ -1041,7 +1041,32 @@ export default function Home() {
             ))}
           </div>
 
-          <div className="mt-[40px] flex justify-center">
+          <div className="mt-4 flex justify-center">
+            <div
+              aria-hidden="true"
+              className="text-[#7e90b2] opacity-60 animate-[soft-chevron-bob_2.6s_ease-in-out_infinite]"
+            >
+              <svg viewBox="0 0 24 24" className="h-[22px] w-[22px]" fill="none">
+                <path
+                  d="m6 8 6 6 6-6"
+                  stroke="currentColor"
+                  strokeWidth="1.8"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+                <path
+                  d="m6 13 6 6 6-6"
+                  stroke="currentColor"
+                  strokeWidth="1.8"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  opacity="0.75"
+                />
+              </svg>
+            </div>
+          </div>
+
+          <div className="relative z-10 mt-[40px] flex justify-center">
             <a
               href={redirectTargetUrl}
               onClick={redirectToOffer}
@@ -1057,7 +1082,7 @@ export default function Home() {
           </div>
 
           {showIntroTrustBadges ? (
-            <div className="mt-4 flex items-center justify-center gap-3 md:hidden">
+            <div className="relative z-0 -mt-1 flex items-center justify-center gap-3 md:hidden">
               <div className="flex h-[58px] w-[138px] items-center justify-center rounded-[14px] border border-black/6 bg-white/72 px-3 shadow-[0_8px_20px_rgba(16,24,32,0.04)]">
                 <Image
                   src="/best-money-assets/insigni%20aoprovado%20y%20verificado.png"
@@ -1558,6 +1583,17 @@ export default function Home() {
     <main className="relative isolate min-h-screen overflow-hidden bg-[var(--page-bg)] text-[var(--ink)]">
       <style jsx global>{`
         @import url("https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700;800&display=swap");
+
+        @keyframes soft-chevron-bob {
+          0%, 100% {
+            transform: translateY(0);
+            opacity: 0.5;
+          }
+          50% {
+            transform: translateY(3px);
+            opacity: 0.72;
+          }
+        }
       `}</style>
       <header ref={headerRef} className="relative z-10 border-b border-black/6 bg-white/96 shadow-[0_6px_18px_rgba(18,31,53,0.08)] backdrop-blur-sm">
         <div className="mx-auto flex h-[60px] w-full max-w-[1200px] items-center justify-between px-4 md:relative md:justify-center">
