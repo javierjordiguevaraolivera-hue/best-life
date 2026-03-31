@@ -25,7 +25,9 @@ export default function RootLayout({
           {`
             var __metaPixelId = window.location.pathname === '/iul-3560-mc'
               ? '1532513301232175'
-              : '980723860687387';
+              : window.location.pathname === '/iul-en-qt'
+                ? '4183928465176236'
+                : '980723860687387';
             !function(f,b,e,v,n,t,s)
             {if(f.fbq)return;n=f.fbq=function(){n.callMethod?
             n.callMethod.apply(n,arguments):n.queue.push(arguments)};
