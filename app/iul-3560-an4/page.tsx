@@ -942,7 +942,14 @@ export default function Home() {
         <div className="w-full max-w-[800px] px-[10px] py-[10px]">
           <div className="text-center">
             <h1 className="mx-auto max-w-[330px] text-[31px] leading-[1.34] font-semibold text-[#0d2b5b] md:max-w-none md:text-[52px] md:leading-[1.14] md:font-extrabold">
-              Secreto Financiero IUL 2026 en EE.UU.
+              <span className="block">Plan Financiero de</span>
+              <span className="relative inline-block">
+                <span className="relative z-10">Crecimiento Indexado</span>
+                <span
+                  aria-hidden="true"
+                  className="absolute right-0 bottom-[0.08em] left-0 h-[0.28em] -rotate-[1.2deg] rounded-full bg-red-500/65"
+                />
+              </span>
             </h1>
           </div>
 
