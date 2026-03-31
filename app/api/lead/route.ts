@@ -115,7 +115,10 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
   }
 
-  const webhookUrl = process.env.principal_webhook_url;
+  const webhookUrl =
+    body.page === "/iul-v2"
+      ? process.env.webhook_url_qt_v2
+      : process.env.principal_webhook_url;
   const geo = geolocation(request);
   const requestIp =
     ipAddress(request) ||
