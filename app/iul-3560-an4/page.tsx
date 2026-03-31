@@ -1506,7 +1506,7 @@ export default function Home() {
           alt=""
           width={520}
           height={520}
-          className="absolute top-[110px] right-[-105px] w-[320px] grayscale opacity-[0.075] md:top-[130px] md:right-[4%] md:w-[420px]"
+          className="absolute top-1/2 left-1/2 w-[320px] -translate-x-1/2 -translate-y-1/2 rotate-[-18deg] grayscale opacity-[0.065] md:w-[420px]"
         />
       </div>
       <header className="relative z-10 border-b border-black/6 bg-white/96 shadow-[0_6px_18px_rgba(18,31,53,0.08)] backdrop-blur-sm">
