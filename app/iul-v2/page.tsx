@@ -115,7 +115,6 @@ const stepOrder: FunnelStep[] = [
   "state",
   "name",
   "phone",
-  "email",
   "success",
 ];
 
@@ -125,7 +124,7 @@ const progressByStep: Record<FunnelStep, number | null> = {
   goal: 32,
   state: 52,
   name: 67,
-  phone: 88,
+  phone: 97,
   email: 97,
   success: 100,
 };
@@ -600,7 +599,12 @@ export default function Home() {
   const pageValue = isHomePage ? "home" : pathname;
   const storageKeyValue = useMemo(() => `best-money-funnel-v1:${pageValue}`, [pageValue]);
   const successHash = "#gracias";
-  const selectedState = answers.state || answers.detectedState || "Florida";
+  const detectedUsState = stateOptions.includes(answers.detectedState)
+    ? answers.detectedState
+    : "";
+  const resolvedUsState = stateOptions.includes(answers.state) ? answers.state : "";
+  const shouldAskState = !resolvedUsState && !detectedUsState;
+  const selectedState = resolvedUsState || detectedUsState || "Florida";
   const animationClass = isTransitioningOut
     ? "animate-[survey-question-out_0.18s_cubic-bezier(0.4,0,1,1)_forwards]"
     : "animate-[survey-question-in_0.42s_cubic-bezier(0.22,0.61,0.36,1)]";
@@ -616,6 +620,7 @@ export default function Home() {
       }
 
       const parsed = JSON.parse(raw) as { answers?: Partial<FunnelAnswers>; currentStep?: FunnelStep };
+      const restoredStep = parsed.currentStep === "email" ? "phone" : parsed.currentStep;
 
       if (parsed.answers) {
         setAnswers((prev) => ({ ...prev, ...parsed.answers }));
@@ -625,11 +630,11 @@ export default function Home() {
       }
 
       if (
-        parsed.currentStep &&
-        parsed.currentStep !== "success" &&
-        stepOrder.includes(parsed.currentStep)
+        restoredStep &&
+        restoredStep !== "success" &&
+        stepOrder.includes(restoredStep)
       ) {
-        setCurrentStep(parsed.currentStep);
+        setCurrentStep(restoredStep);
       }
     } catch {
       // Ignore invalid localStorage payloads.
@@ -800,6 +805,11 @@ export default function Home() {
     trackingWindow.ttq?.track?.("CompleteRegistration");
   }, [currentStep, leadEventNonce, successHash]);
 
+  useEffect(() => {
+    if (currentStep !== "state" || shouldAskState) return;
+    transitionTo("name", "forward");
+  }, [currentStep, shouldAskState]);
+
   function transitionTo(nextStep: FunnelStep, direction: "forward" | "backward") {
     setSlideDirection(direction);
     setIsTransitioningOut(true);
@@ -816,6 +826,11 @@ export default function Home() {
   }
 
   function goBack() {
+    if (currentStep === "name" && !shouldAskState) {
+      transitionTo("goal", "backward");
+      return;
+    }
+
     const currentIndex = stepOrder.indexOf(currentStep);
     if (currentIndex <= 0) return;
     transitionTo(stepOrder[currentIndex - 1], "backward");
@@ -1265,7 +1280,7 @@ export default function Home() {
                   key={option}
                   type="button"
                   onClick={() =>
-                    handleDirectChoice("insuranceGoal", option, "state")
+                    handleDirectChoice("insuranceGoal", option, shouldAskState ? "state" : "name")
                   }
                   className={optionButtonClass(answers.insuranceGoal === option)}
                 >
@@ -1279,7 +1294,7 @@ export default function Home() {
             <div className={`mt-8 flex w-full max-w-[460px] flex-col gap-4 md:mt-10 ${animationClass}`}>
               <label
                 className={`relative flex min-h-[78px] w-full cursor-pointer rounded-[16px] border bg-white px-5 py-4 text-left shadow-[0_4px_10px_rgba(16,24,32,0.08)] transition ${
-                  selectedState === (answers.detectedState || "")
+                  detectedUsState && selectedState === detectedUsState
                     ? "border-[var(--brand)] shadow-[0_0_0_1px_var(--brand)]"
                     : "border-[#9c9c9c]"
                 }`}
@@ -1287,7 +1302,7 @@ export default function Home() {
                 <span className="flex min-w-0 flex-1 flex-col">
                   <span className="text-[17px] text-[#101820]">
                     {selectedState}{" "}
-                    {selectedState === (answers.detectedState || selectedState) ? (
+                    {detectedUsState && selectedState === detectedUsState ? (
                       <span className="text-[14px] font-medium text-[var(--brand-dark)]">
                         (Detectado)
                       </span>
@@ -1313,8 +1328,8 @@ export default function Home() {
                   }
                   className="absolute inset-0 cursor-pointer opacity-0"
                 >
-                  <option value={answers.detectedState || "Florida"}>
-                    {answers.detectedState || "Florida"}
+                  <option value={detectedUsState || "Florida"}>
+                    {detectedUsState || "Florida"}
                   </option>
                   {stateOptions.map((state) => (
                     <option key={state} value={state}>
@@ -1414,21 +1429,38 @@ export default function Home() {
                 />
               </div>
 
+              <div className="relative">
+                <span className="pointer-events-none absolute left-5 top-1/2 -translate-y-1/2 text-[#6b7280]">
+                  <svg aria-hidden="true" viewBox="0 0 24 24" className="h-[18px] w-[18px]" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M4 7h16v10H4z" /><path d="m4 8 8 6 8-6" /></svg>
+                </span>
+                <input
+                  value={answers.email}
+                  onChange={(event) => {
+                    setAnswers((prev) => ({
+                      ...prev,
+                      email: event.target.value,
+                    }));
+                    setEmailError("");
+                  }}
+                  placeholder="Ej: correo@ejemplo.com"
+                  inputMode="email"
+                  autoComplete="email"
+                  className="h-[58px] w-full rounded-[16px] border border-[#9c9c9c] bg-white pl-12 pr-5 text-[17px] text-[#101820] outline-none transition focus:border-[var(--brand)]"
+                />
+              </div>
+
               <p className="min-h-[22px] text-[14px] text-[#d14c4c]">
                 {phoneError}
               </p>
 
+              <p className="min-h-[22px] text-[14px] text-[#d14c4c]">
+                {emailError}
+              </p>
+
               <button
                 type="button"
-                onClick={() => {
-                  const phoneValidationMessage = getPhoneValidationMessage(normalizedPhone);
-                  if (phoneValidationMessage) {
-                    setPhoneError(phoneValidationMessage);
-                    return;
-                  }
-                  setPhoneError("");
-                  transitionTo("email", "forward");
-                }}
+                onClick={() => void submitLead()}
+                disabled={isSubmittingLead}
                 className="inline-flex h-[54px] items-center justify-center gap-2 rounded-full bg-[var(--brand)] px-6 text-[18px] font-semibold text-white transition disabled:cursor-wait disabled:opacity-70 hover:bg-[var(--brand-dark)]"
               >
                 <span>Ver mi cotización ahora</span>
