@@ -15,7 +15,7 @@ const redirectTargetUrl = "https://www.jk8gcxs.com/7659ZZ3/79JQ12F/";
 const introBenefits = [
   {
     icon: "📈",
-    title: "Ahorro + Interés Compuesto",
+    title: "Ahorro + Interés Compuesto (hasta 9.3%)",
   },
   {
     icon: "🚫",
