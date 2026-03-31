@@ -944,8 +944,6 @@ export default function Home() {
             <h1 className="mx-auto max-w-[330px] text-[31px] leading-[1.34] font-extrabold text-[#0d2b5b] md:max-w-none md:text-[52px] md:leading-[1.14]">
               Secreto Financiero IUL 2026 en EE.UU.
             </h1>
-            <p className="mx-auto mt-4 max-w-[340px] border-b-2 border-[#f1f5f9] pb-[15px] text-[13px] leading-[1.2] text-[#64748b] md:max-w-none md:text-[18px]">
-            </p>
           </div>
 
           <div className="mt-[15px] grid gap-[15px]">
