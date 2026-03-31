@@ -1504,16 +1504,9 @@ export default function Home() {
         <Image
           src="/best-money-assets/insigni%20aoprovado%20y%20verificado.png"
           alt=""
-          width={420}
-          height={420}
-          className="absolute top-[92px] right-[-86px] w-[240px] grayscale opacity-[0.08] md:top-[118px] md:right-[3%] md:w-[340px]"
-        />
-        <Image
-          src="/best-money-assets/insigni%20aoprovado%20y%20verificado.png"
-          alt=""
-          width={360}
-          height={360}
-          className="absolute bottom-[7%] left-[-72px] w-[205px] grayscale opacity-[0.055] md:bottom-[8%] md:left-[5%] md:w-[270px]"
+          width={520}
+          height={520}
+          className="absolute top-[110px] right-[-105px] w-[320px] grayscale opacity-[0.075] md:top-[130px] md:right-[4%] md:w-[420px]"
         />
       </div>
       <header className="relative z-10 border-b border-black/6 bg-white/96 shadow-[0_6px_18px_rgba(18,31,53,0.08)] backdrop-blur-sm">
