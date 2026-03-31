@@ -973,7 +973,7 @@ export default function Home() {
             <a
               href={redirectTargetUrl}
               onClick={redirectToOffer}
-              className="inline-flex w-full max-w-[500px] flex-col items-center justify-center rounded-[50px] bg-[#1a73e8] px-8 py-[22px] text-white shadow-[0_10px_20px_rgba(26,115,232,0.3)] transition-all duration-300 ease-out hover:-translate-y-[3px] hover:scale-[1.02] hover:shadow-[0_14px_28px_rgba(26,115,232,0.38)]"
+              className="inline-flex w-full max-w-[500px] flex-col items-center justify-center rounded-[34px] bg-[#1a73e8] px-8 py-[16px] text-white shadow-[0_10px_20px_rgba(26,115,232,0.3)] transition-all duration-300 ease-out hover:-translate-y-[3px] hover:scale-[1.02] hover:shadow-[0_14px_28px_rgba(26,115,232,0.38)]"
             >
               <span className="text-[21px] leading-[1.15] font-extrabold text-white md:text-[24px]">
                 Ver si califico ahora
