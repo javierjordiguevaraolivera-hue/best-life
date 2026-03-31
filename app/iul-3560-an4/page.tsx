@@ -1496,11 +1496,27 @@ export default function Home() {
   }
 
   return (
-    <main className="min-h-screen bg-[var(--page-bg)] text-[var(--ink)]">
+    <main className="relative isolate min-h-screen overflow-hidden bg-[var(--page-bg)] text-[var(--ink)]">
       <style jsx global>{`
         @import url("https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700;800&display=swap");
       `}</style>
-      <header className="border-b border-black/6 bg-white/96 shadow-[0_6px_18px_rgba(18,31,53,0.08)] backdrop-blur-sm">
+      <div className="pointer-events-none fixed inset-0 z-0 overflow-hidden">
+        <Image
+          src="/best-money-assets/insigni%20aoprovado%20y%20verificado.png"
+          alt=""
+          width={420}
+          height={420}
+          className="absolute top-[92px] right-[-86px] w-[240px] grayscale opacity-[0.08] md:top-[118px] md:right-[3%] md:w-[340px]"
+        />
+        <Image
+          src="/best-money-assets/insigni%20aoprovado%20y%20verificado.png"
+          alt=""
+          width={360}
+          height={360}
+          className="absolute bottom-[7%] left-[-72px] w-[205px] grayscale opacity-[0.055] md:bottom-[8%] md:left-[5%] md:w-[270px]"
+        />
+      </div>
+      <header className="relative z-10 border-b border-black/6 bg-white/96 shadow-[0_6px_18px_rgba(18,31,53,0.08)] backdrop-blur-sm">
         <div className="mx-auto flex h-[60px] w-full max-w-[1200px] items-center justify-between px-4 md:relative md:justify-center">
           <Image
             src="/best-money-assets/logo-best-life.png"
@@ -1523,10 +1539,10 @@ export default function Home() {
       </header>
 
       {isSuccessPage ? (
-        <section className="px-0 py-0 md:px-4 md:py-6">{renderSuccessPage()}</section>
+        <section className="relative z-10 px-0 py-0 md:px-4 md:py-6">{renderSuccessPage()}</section>
       ) : (
         <>
-          <div className="mx-auto flex min-h-[calc(100vh-60px)] w-full max-w-[1200px] flex-col items-center px-3 pb-6 pt-6 md:px-4 md:pb-10 md:pt-4">
+          <div className="relative z-10 mx-auto flex min-h-[calc(100vh-60px)] w-full max-w-[1200px] flex-col items-center px-3 pb-6 pt-6 md:px-4 md:pb-10 md:pt-4">
             <section
               className={`flex w-full flex-col items-center ${
                 isQuestionnaire ? "justify-start" : "justify-center"
