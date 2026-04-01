@@ -1575,6 +1575,8 @@ export default function Home() {
           {currentStep === "name" ? (
             <div className={`mt-8 flex w-full max-w-[460px] flex-col gap-4 md:mt-10 ${animationClass}`}>
               <input
+                id="first-name"
+                name="given-name"
                 value={answers.firstName}
                 onChange={(event) =>
                   setAnswers((prev) => ({
@@ -1583,9 +1585,14 @@ export default function Home() {
                   }))
                 }
                 placeholder="Nombre"
+                autoComplete="given-name"
+                autoCapitalize="words"
+                enterKeyHint="next"
                 className="h-[58px] rounded-[16px] border border-[#9c9c9c] bg-white px-5 text-[17px] text-[#101820] outline-none transition focus:border-[var(--brand)]"
               />
               <input
+                id="last-name"
+                name="family-name"
                 value={answers.lastName}
                 onChange={(event) =>
                   setAnswers((prev) => ({
@@ -1594,6 +1601,9 @@ export default function Home() {
                   }))
                 }
                 placeholder="Apellido"
+                autoComplete="family-name"
+                autoCapitalize="words"
+                enterKeyHint="next"
                 className="h-[58px] rounded-[16px] border border-[#9c9c9c] bg-white px-5 text-[17px] text-[#101820] outline-none transition focus:border-[var(--brand)]"
               />
 
@@ -1626,6 +1636,8 @@ export default function Home() {
                 </select>
 
                 <input
+                  id="phone-number"
+                  name="tel"
                   value={formatPhoneDigits(answers.phoneNumber)}
                   onChange={(event) => {
                     setAnswers((prev) => ({
@@ -1637,6 +1649,7 @@ export default function Home() {
                   placeholder="000 000 0000"
                   inputMode="tel"
                   autoComplete="tel"
+                  enterKeyHint="next"
                   className="h-[58px] min-w-0 flex-1 rounded-[16px] border border-[#9c9c9c] bg-white px-5 text-[17px] text-[#101820] outline-none transition focus:border-[var(--brand)]"
                 />
               </div>
@@ -1646,6 +1659,8 @@ export default function Home() {
                   <svg aria-hidden="true" viewBox="0 0 24 24" className="h-[18px] w-[18px]" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M4 7h16v10H4z" /><path d="m4 8 8 6 8-6" /></svg>
                 </span>
                 <input
+                  id="email"
+                  name="email"
                   value={answers.email}
                   onChange={(event) => {
                     setAnswers((prev) => ({
@@ -1657,6 +1672,9 @@ export default function Home() {
                   placeholder="Ej: correo@ejemplo.com"
                   inputMode="email"
                   autoComplete="email"
+                  autoCapitalize="none"
+                  spellCheck={false}
+                  enterKeyHint="done"
                   className="h-[58px] w-full rounded-[16px] border border-[#9c9c9c] bg-white pl-12 pr-5 text-[17px] text-[#101820] outline-none transition focus:border-[var(--brand)]"
                 />
               </div>

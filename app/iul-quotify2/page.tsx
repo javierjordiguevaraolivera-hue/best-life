@@ -15,28 +15,23 @@ const redirectTargetUrl = "https://www.quotify.us/";
 const introBenefits = [
   {
     icon: "📈",
-    title: "Ahorro con Interés Compuesto",
-    description: "Maximiza tus fondos con rendimientos de hasta el 9.5% anual.",
+    title: "Ahorro + Interés Compuesto (hasta 9.3%)",
   },
   {
     icon: "🚫",
-    title: "Retiros Libres de Impuestos",
-    description: "Accede a tu dinero para el retiro sin pagar impuestos al IRS.",
+    title: "Retiros libres de impuestos",
   },
   {
     icon: "🏦",
     title: "Liquidez Inmediata",
-    description: "Solicita préstamos usando tu póliza como garantía cuando quieras.",
   },
   {
     icon: "🛡️",
     title: "Protección Contra Caídas",
-    description: "Tu ahorro está seguro (Piso 0%) aunque el mercado caiga.",
   },
   {
     icon: "🏥",
     title: "Beneficios en Vida",
-    description: "Usa tus fondos en caso de una enfermedad crítica o emergencia grave.",
   },
 ];
 
@@ -578,6 +573,8 @@ function PhonePadIcon({ className = "h-[1em] w-[1em]" }: { className?: string })
 
 export default function Home() {
   const pathname = usePathname();
+  const headerRef = useRef<HTMLElement | null>(null);
+  const introContentRef = useRef<HTMLDivElement | null>(null);
   const [currentStep, setCurrentStep] = useState<FunnelStep>("intro");
   const [slideDirection, setSlideDirection] = useState<"forward" | "backward">("forward");
   const [panelKey, setPanelKey] = useState(0);
@@ -592,6 +589,8 @@ export default function Home() {
   const [submitError, setSubmitError] = useState("");
   const [isSubmittingLead, setIsSubmittingLead] = useState(false);
   const [leadEventNonce, setLeadEventNonce] = useState<string | null>(null);
+  const [showIntroTrustBadges, setShowIntroTrustBadges] = useState(false);
+  const [anchorIntroToBottom, setAnchorIntroToBottom] = useState(false);
   const transitionTimeoutRef = useRef<number | null>(null);
   const trackedLeadNonceRef = useRef<string | null>(null);
 
@@ -801,6 +800,37 @@ export default function Home() {
     trackingWindow.ttq?.track?.("CompleteRegistration");
   }, [currentStep, leadEventNonce, successHash]);
 
+  useEffect(() => {
+    if (currentStep !== "intro") {
+      setShowIntroTrustBadges(false);
+      setAnchorIntroToBottom(false);
+      return;
+    }
+
+    const measureIntroLayout = () => {
+      const viewportWidth = window.innerWidth;
+      const headerHeight = headerRef.current?.offsetHeight ?? 60;
+      const introHeight = introContentRef.current?.offsetHeight ?? 0;
+      const badgeAllowance = 76;
+      const availableHeight = window.innerHeight - headerHeight - 20;
+      const isMobileWidth = viewportWidth < 768;
+      const widthAllowsBadges = viewportWidth >= 360;
+      const fitsWithBadges = introHeight > 0 && introHeight + badgeAllowance <= availableHeight;
+      const shouldShowBadges = isMobileWidth && widthAllowsBadges && fitsWithBadges;
+
+      setShowIntroTrustBadges(shouldShowBadges);
+      setAnchorIntroToBottom(isMobileWidth && !shouldShowBadges);
+    };
+
+    const rafId = window.requestAnimationFrame(measureIntroLayout);
+    window.addEventListener("resize", measureIntroLayout);
+
+    return () => {
+      window.cancelAnimationFrame(rafId);
+      window.removeEventListener("resize", measureIntroLayout);
+    };
+  }, [currentStep]);
+
   function transitionTo(nextStep: FunnelStep, direction: "forward" | "backward") {
     setSlideDirection(direction);
     setIsTransitioningOut(true);
@@ -941,17 +971,51 @@ export default function Home() {
   function renderIntroPanel() {
     return (
       <div
+        ref={introContentRef}
         className="mx-auto flex w-full max-w-[980px] animate-[fade-up_0.55s_ease-out] flex-col items-center"
         style={{ fontFamily: '"Montserrat", "HurmeGeo", Arial, sans-serif' }}
       >
         <div className="w-full max-w-[800px] px-[10px] py-[10px]">
           <div className="text-center">
-            <h1 className="mx-auto max-w-[330px] text-[31px] leading-[1.34] font-bold text-[#0d2b5b] md:max-w-none md:text-[52px] md:leading-[1.14]">
-              Plan Estratégico de Ahorro IUL 2026
+            <h1 className="mx-auto max-w-[330px] text-[31px] leading-[1.34] font-semibold text-[#0d2b5b] md:max-w-none md:text-[52px] md:leading-[1.14] md:font-extrabold">
+              <span className="block">Plan Financiero de</span>
+              <span className="relative mt-1 inline-block text-[0.86em] leading-[1.12] md:text-[1em]">
+                <span className="relative z-10">Crecimiento Indexado</span>
+                <svg
+                  aria-hidden="true"
+                  viewBox="0 0 260 28"
+                  preserveAspectRatio="none"
+                  className="absolute -right-[2%] -bottom-[0.2em] -left-[2%] h-[0.5em] w-[104%]"
+                >
+                  <path
+                    d="M5 15 C 40 19, 75 12, 110 15 C 145 18, 182 12, 220 15 C 232 16, 243 14, 255 13"
+                    stroke="#ef4444"
+                    strokeWidth="3.2"
+                    strokeLinecap="round"
+                    fill="none"
+                    opacity="0.8"
+                  />
+                  <path
+                    d="M7 18 C 38 21, 72 15, 108 18 C 145 20, 180 14, 217 17 C 229 17, 241 16, 252 15"
+                    stroke="#f87171"
+                    strokeWidth="2.1"
+                    strokeLinecap="round"
+                    fill="none"
+                    opacity="0.65"
+                    strokeDasharray="2.2 2.8"
+                  />
+                  <path
+                    d="M10 13 C 42 16, 75 10, 111 13 C 148 16, 184 10, 220 13"
+                    stroke="#dc2626"
+                    strokeWidth="1.6"
+                    strokeLinecap="round"
+                    fill="none"
+                    opacity="0.55"
+                    strokeDasharray="1.5 3.2"
+                  />
+                </svg>
+              </span>
             </h1>
-            <p className="mx-auto mt-4 max-w-[340px] border-b-2 border-[#f1f5f9] pb-[15px] text-[13px] leading-[1.2] text-[#64748b] md:max-w-none md:text-[18px]">
-              Exclusivo para residentes de 22 a 45 años
-            </p>
           </div>
 
           <div className="mt-[15px] grid gap-[15px]">
@@ -963,37 +1027,82 @@ export default function Home() {
                 className="flex cursor-pointer items-stretch overflow-hidden rounded-[15px] bg-[#f8fafc] text-left shadow-[0_0_0_1px_#f0f4f8] transition-all duration-300 ease-out hover:-translate-y-[3px] hover:scale-[1.02] hover:bg-white hover:shadow-[0_5px_15px_rgba(0,0,0,0.08)]"
               >
                 <div className="w-[6px] shrink-0 bg-[#1a73e8]" />
-                <div className="flex flex-1 items-center gap-[14px] px-[18px] py-[16px]">
-                  <div className="flex min-w-[42px] justify-center text-[29px] leading-none">
+                <div className="flex flex-1 items-center gap-[12px] px-[20px] py-[20px]">
+                  <div className="flex min-w-[42px] justify-center text-[28px] leading-none">
                     <span aria-hidden="true">{benefit.icon}</span>
                   </div>
                   <div className="min-w-0 text-left">
-                    <h2 className="text-[18px] leading-[1.2] font-bold text-[#1e40af] md:text-[19px]">
+                    <h2 className="text-[18px] leading-[1.2] font-medium text-[#1e40af] md:text-[19px]">
                       {benefit.title}
                     </h2>
-                    <p className="mt-1 text-[15px] leading-[1.4] text-[#475569] md:text-[16px]">
-                      {benefit.description}
-                    </p>
                   </div>
                 </div>
               </a>
             ))}
           </div>
 
-          <div className="mt-[40px] flex justify-center">
+          <div className="mt-4 flex justify-center">
+            <div
+              aria-hidden="true"
+              className="text-[#7e90b2] opacity-60 animate-[soft-chevron-bob_2.6s_ease-in-out_infinite]"
+            >
+              <svg viewBox="0 0 24 24" className="h-[22px] w-[22px]" fill="none">
+                <path
+                  d="m6 8 6 6 6-6"
+                  stroke="currentColor"
+                  strokeWidth="1.8"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+                <path
+                  d="m6 13 6 6 6-6"
+                  stroke="currentColor"
+                  strokeWidth="1.8"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  opacity="0.75"
+                />
+              </svg>
+            </div>
+          </div>
+
+          <div className="relative z-10 mt-[32px] flex justify-center">
             <a
               href={redirectTargetUrl}
               onClick={redirectToOffer}
-              className="inline-flex w-full max-w-[500px] flex-col items-center justify-center rounded-[50px] bg-[#1a73e8] px-8 py-[22px] text-white shadow-[0_10px_20px_rgba(26,115,232,0.3)] transition-all duration-300 ease-out hover:-translate-y-[3px] hover:scale-[1.02] hover:shadow-[0_14px_28px_rgba(26,115,232,0.38)]"
+              className="inline-flex w-full max-w-[500px] flex-col items-center justify-center rounded-[34px] bg-[#1a73e8] px-8 py-[16px] text-white shadow-[0_10px_20px_rgba(26,115,232,0.3)] transition-all duration-300 ease-out hover:-translate-y-[3px] hover:scale-[1.02] hover:shadow-[0_14px_28px_rgba(26,115,232,0.38)]"
             >
               <span className="text-[21px] leading-[1.15] font-extrabold text-white md:text-[24px]">
-                Verificar Mi Elegibilidad
+                Ver si califico ahora
               </span>
               <span className="mt-1 block text-[13px] font-normal text-[#e0f2fe] md:text-[14px]">
-                (Solo para personas de 22 a 45 años)
+                (Toma solo 30 segundos)
               </span>
             </a>
           </div>
+
+          {showIntroTrustBadges ? (
+            <div className="relative z-0 mt-3 flex items-center justify-center gap-3 md:hidden">
+              <div className="flex h-[58px] w-[138px] items-center justify-center rounded-[14px] border border-black/6 bg-white/72 px-3 shadow-[0_8px_20px_rgba(16,24,32,0.04)]">
+                <Image
+                  src="/best-money-assets/insigni%20aoprovado%20y%20verificado.png"
+                  alt="Aprobado y verificado"
+                  width={112}
+                  height={56}
+                  className="h-auto w-[102px] grayscale opacity-55"
+                />
+              </div>
+              <div className="flex h-[58px] w-[138px] items-center justify-center rounded-[14px] border border-black/6 bg-white/72 px-3 shadow-[0_8px_20px_rgba(16,24,32,0.04)]">
+                <Image
+                  src="/best-money-assets/busines-acredited-bbb.avif"
+                  alt="BBB Accredited"
+                  width={110}
+                  height={42}
+                  className="h-auto w-[98px] grayscale opacity-55"
+                />
+              </div>
+            </div>
+          ) : null}
         </div>
       </div>
     );
@@ -1471,11 +1580,22 @@ export default function Home() {
   }
 
   return (
-    <main className="min-h-screen bg-[var(--page-bg)] text-[var(--ink)]">
+    <main className="relative isolate min-h-screen overflow-hidden bg-[var(--page-bg)] text-[var(--ink)]">
       <style jsx global>{`
         @import url("https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700;800&display=swap");
+
+        @keyframes soft-chevron-bob {
+          0%, 100% {
+            transform: translateY(0);
+            opacity: 0.5;
+          }
+          50% {
+            transform: translateY(3px);
+            opacity: 0.72;
+          }
+        }
       `}</style>
-      <header className="border-b border-black/6 bg-white/96 shadow-[0_6px_18px_rgba(18,31,53,0.08)] backdrop-blur-sm">
+      <header ref={headerRef} className="relative z-10 border-b border-black/6 bg-white/96 shadow-[0_6px_18px_rgba(18,31,53,0.08)] backdrop-blur-sm">
         <div className="mx-auto flex h-[60px] w-full max-w-[1200px] items-center justify-between px-4 md:relative md:justify-center">
           <Image
             src="/best-money-assets/logo-best-life.png"
@@ -1498,13 +1618,13 @@ export default function Home() {
       </header>
 
       {isSuccessPage ? (
-        <section className="px-0 py-0 md:px-4 md:py-6">{renderSuccessPage()}</section>
+        <section className="relative z-10 px-0 py-0 md:px-4 md:py-6">{renderSuccessPage()}</section>
       ) : (
         <>
-          <div className="mx-auto flex min-h-[calc(100vh-60px)] w-full max-w-[1200px] flex-col items-center px-3 pb-6 pt-8 md:px-4 md:pb-10 md:pt-4">
+          <div className="relative z-10 mx-auto flex min-h-[calc(100vh-60px)] w-full max-w-[1200px] flex-col items-center px-3 pb-6 pt-6 md:px-4 md:pb-10 md:pt-4">
             <section
               className={`flex w-full flex-col items-center ${
-                isQuestionnaire ? "justify-start" : "justify-center"
+                isQuestionnaire ? "justify-start" : anchorIntroToBottom ? "justify-end" : "justify-center"
               }`}
             >
               <div className="w-full">
