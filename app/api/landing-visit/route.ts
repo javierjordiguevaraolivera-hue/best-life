@@ -42,6 +42,8 @@ export async function POST(request: Request) {
     source: "best-money-next",
     type: "landing_visit",
     ipAddress: requestIp,
+    zipCode: geo.postalCode || null,
+    state: geo.countryRegion || null,
     geolocation: geo,
     ...body,
   };
