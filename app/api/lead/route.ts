@@ -1,4 +1,4 @@
-import { geolocation, ipAddress } from "@vercel/functions";
+import { geolocation, ipAddress, waitUntil } from "@vercel/functions";
 import { NextResponse } from "next/server";
 
 type LeadPayload = {
@@ -15,6 +15,17 @@ type PhoneValidationResult = {
   flags: string[];
   reason?: string;
 };
+
+async function postWebhook(url: string, payload: unknown) {
+  return fetch(url, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+    cache: "no-store",
+  });
+}
 
 const PHONE_WINDOW_MS = 6 * 60 * 60 * 1000;
 const VELOCITY_WINDOW_MS = 30 * 60 * 1000;
@@ -119,6 +130,7 @@ export async function POST(request: Request) {
     body.page === "/iul-v2"
       ? process.env.webhook_url_qt_v2
       : process.env.principal_webhook_url;
+  const backupWebhookUrl = process.env.TEST_WEBHOOK_URL_ONLY?.trim();
   const geo = geolocation(request);
   const requestIp =
     ipAddress(request) ||
@@ -204,14 +216,19 @@ export async function POST(request: Request) {
   }
 
   try {
-    const response = await fetch(webhookUrl, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(payload),
-      cache: "no-store",
-    });
+    if (backupWebhookUrl && backupWebhookUrl !== webhookUrl) {
+      waitUntil(
+        postWebhook(backupWebhookUrl, payload).then((backupResponse) => {
+          if (!backupResponse.ok) {
+            throw new Error(`Backup webhook rejected payload with ${backupResponse.status}`);
+          }
+        }).catch((error) => {
+          console.error("Backup webhook failed", error);
+        })
+      );
+    }
+
+    const response = await postWebhook(webhookUrl, payload);
 
     if (!response.ok) {
       return NextResponse.json(
