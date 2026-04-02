@@ -2,6 +2,7 @@ type LandingVisitPayload = {
   page: string;
   visitedAt: string;
   fbp: string | null;
+  fbc: string | null;
   url: {
     href: string;
     origin: string;
@@ -54,6 +55,7 @@ function buildLandingVisitPayload(page: string): LandingVisitPayload {
     page,
     visitedAt: new Date().toISOString(),
     fbp: getCookieValue("_fbp"),
+    fbc: getCookieValue("_fbc"),
     url: {
       href: window.location.href,
       origin: window.location.origin,
