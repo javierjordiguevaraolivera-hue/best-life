@@ -594,6 +594,7 @@ export default function Home() {
   const [isSubmittingLead, setIsSubmittingLead] = useState(false);
   const [leadEventNonce, setLeadEventNonce] = useState<string | null>(null);
   const transitionTimeoutRef = useRef<number | null>(null);
+  const pageViewLeadTrackedRef = useRef(false);
   const trackedLeadNonceRef = useRef<string | null>(null);
 
   const progress = progressByStep[currentStep];
@@ -612,6 +613,18 @@ export default function Home() {
   useEffect(() => {
     trackLandingVisit(pageValue);
   }, [pageValue]);
+
+  useEffect(() => {
+    if (pageViewLeadTrackedRef.current) return;
+
+    const trackingWindow = window as Window &
+      typeof globalThis & {
+        fbq?: (...args: unknown[]) => void;
+      };
+
+    pageViewLeadTrackedRef.current = true;
+    trackingWindow.fbq?.("track", "Lead");
+  }, []);
 
   useEffect(() => {
     try {
