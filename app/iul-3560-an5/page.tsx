@@ -1071,7 +1071,7 @@ export default function Home() {
             </div>
           </div>
 
-          <div className="relative z-10 mt-[32px] flex justify-center">
+          <div className="relative z-10 mt-[8px] flex justify-center">
             <a
               href={redirectTargetUrl}
               onClick={redirectToOffer}
