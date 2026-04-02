@@ -24,8 +24,7 @@ const introBenefits = [
   },
   {
     icon: "🏦",
-    title: "Dinero en Efectivo",
-    subtitle: "puedes retirar hasta el 80% acumulado",
+    title: "Liquidez Inmediata",
   },
   {
     icon: "🛡️",
@@ -815,7 +814,7 @@ export default function Home() {
 
     const measureIntroLayout = () => {
       const viewportWidth = window.innerWidth;
-      const headerHeight = headerRef.current?.offsetHeight ?? 60;
+      const headerHeight = headerRef.current?.offsetHeight ?? 0;
       const introHeight = introContentRef.current?.offsetHeight ?? 0;
       const badgeAllowance = 76;
       const availableHeight = window.innerHeight - headerHeight - 20;
@@ -1041,11 +1040,6 @@ export default function Home() {
                     <h2 className="text-[18px] leading-[1.2] font-medium text-[#1e40af] md:text-[19px]">
                       {benefit.title}
                     </h2>
-                    {"subtitle" in benefit && benefit.subtitle ? (
-                      <p className="mt-[2px] text-[11px] leading-[1.15] font-light text-[#5f6d86]">
-                        {benefit.subtitle}
-                      </p>
-                    ) : null}
                   </div>
                 </div>
               </a>
@@ -1606,33 +1600,11 @@ export default function Home() {
           }
         }
       `}</style>
-      <header ref={headerRef} className="relative z-10 border-b border-black/6 bg-white/96 shadow-[0_6px_18px_rgba(18,31,53,0.08)] backdrop-blur-sm">
-        <div className="mx-auto flex h-[60px] w-full max-w-[1200px] items-center justify-between px-4 md:relative md:justify-center">
-          <Image
-            src="/best-money-assets/logo-best-life.png"
-            alt="Best Life"
-            width={180}
-            height={48}
-            priority
-            className="h-auto w-[148px] md:w-[160px]"
-          />
-          <div className="flex items-center gap-2 text-[14px] font-semibold text-[#191919] md:absolute md:right-4">
-            <Image
-              src="/best-money-assets/secure-form-best-life2.png"
-              alt="Secure Form"
-              width={150}
-              height={32}
-              className="h-auto w-[128px] md:w-[136px]"
-            />
-          </div>
-        </div>
-      </header>
-
       {isSuccessPage ? (
         <section className="relative z-10 px-0 py-0 md:px-4 md:py-6">{renderSuccessPage()}</section>
       ) : (
         <>
-          <div className="relative z-10 mx-auto flex min-h-[calc(100vh-60px)] w-full max-w-[1200px] flex-col items-center px-3 pb-6 pt-6 md:px-4 md:pb-10 md:pt-4">
+          <div className="relative z-10 mx-auto flex min-h-screen w-full max-w-[1200px] flex-col items-center px-3 pb-6 pt-4 md:px-4 md:pb-10 md:pt-4">
             <section
               className={`flex w-full flex-col items-center ${
                 isQuestionnaire ? "justify-start" : anchorIntroToBottom ? "justify-end" : "justify-center"
