@@ -32,16 +32,47 @@ type LandingVisitPayload = {
   timezone: string | null;
 };
 
+const META_COOKIE_RETRY_DELAY_MS = 250;
+const META_COOKIE_MAX_RETRIES = 8;
+
 function getCookieValue(name: string) {
   const escapedName = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   const match = document.cookie.match(new RegExp(`(?:^|; )${escapedName}=([^;]*)`));
   return match ? decodeURIComponent(match[1]) : null;
 }
 
-function buildLandingVisitPayload(page: string): LandingVisitPayload {
+function wait(ms: number) {
+  return new Promise((resolve) => window.setTimeout(resolve, ms));
+}
+
+function buildFbcFromFbclid() {
+  const fbclid = new URLSearchParams(window.location.search).get("fbclid");
+  if (!fbclid) return null;
+  return `fb.1.${Date.now()}.${fbclid}`;
+}
+
+async function collectMetaCookies() {
+  let fbp = getCookieValue("_fbp");
+  let fbc = getCookieValue("_fbc");
+
+  for (let attempt = 0; attempt < META_COOKIE_MAX_RETRIES; attempt += 1) {
+    if (fbp && fbc) break;
+    await wait(META_COOKIE_RETRY_DELAY_MS);
+    fbp = fbp || getCookieValue("_fbp");
+    fbc = fbc || getCookieValue("_fbc");
+  }
+
+  return {
+    fbp,
+    fbc: fbc || buildFbcFromFbclid(),
+  };
+}
+
+async function buildLandingVisitPayload(page: string): Promise<LandingVisitPayload> {
   const searchParams = new URLSearchParams(window.location.search);
   const params: Record<string, string> = {};
   const paramsAll: Record<string, string[]> = {};
+  const { fbp, fbc } = await collectMetaCookies();
 
   searchParams.forEach((value, key) => {
     params[key] = value;
@@ -54,8 +85,8 @@ function buildLandingVisitPayload(page: string): LandingVisitPayload {
   return {
     page,
     visitedAt: new Date().toISOString(),
-    fbp: getCookieValue("_fbp"),
-    fbc: getCookieValue("_fbc"),
+    fbp,
+    fbc,
     url: {
       href: window.location.href,
       origin: window.location.origin,
@@ -89,17 +120,19 @@ function buildLandingVisitPayload(page: string): LandingVisitPayload {
 export function trackLandingVisit(page: string) {
   if (typeof window === "undefined") return;
 
-  const payload = buildLandingVisitPayload(page);
-
-  void fetch("/api/landing-visit", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(payload),
-    cache: "no-store",
-    keepalive: true,
-  }).catch(() => {
-    // Tracking fallback is intentionally silent.
-  });
+  void buildLandingVisitPayload(page)
+    .then((payload) =>
+      fetch("/api/landing-visit", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+        cache: "no-store",
+        keepalive: true,
+      })
+    )
+    .catch(() => {
+      // Tracking fallback is intentionally silent.
+    });
 }
