@@ -1,6 +1,7 @@
 type LandingVisitPayload = {
   page: string;
   visitedAt: string;
+  fbp: string | null;
   url: {
     href: string;
     origin: string;
@@ -30,6 +31,12 @@ type LandingVisitPayload = {
   timezone: string | null;
 };
 
+function getCookieValue(name: string) {
+  const escapedName = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const match = document.cookie.match(new RegExp(`(?:^|; )${escapedName}=([^;]*)`));
+  return match ? decodeURIComponent(match[1]) : null;
+}
+
 function buildLandingVisitPayload(page: string): LandingVisitPayload {
   const searchParams = new URLSearchParams(window.location.search);
   const params: Record<string, string> = {};
@@ -46,6 +53,7 @@ function buildLandingVisitPayload(page: string): LandingVisitPayload {
   return {
     page,
     visitedAt: new Date().toISOString(),
+    fbp: getCookieValue("_fbp"),
     url: {
       href: window.location.href,
       origin: window.location.origin,
