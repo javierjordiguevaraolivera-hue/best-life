@@ -617,13 +617,29 @@ export default function Home() {
   useEffect(() => {
     if (pageViewLeadTrackedRef.current) return;
 
-    const trackingWindow = window as Window &
-      typeof globalThis & {
-        fbq?: (...args: unknown[]) => void;
-      };
+    let isCancelled = false;
 
-    pageViewLeadTrackedRef.current = true;
-    trackingWindow.fbq?.("track", "Lead");
+    void fetch("/api/test-status", { cache: "no-store" })
+      .then((response) => response.json().catch(() => null))
+      .then((data: { testStatus?: string } | null) => {
+        if (isCancelled) return;
+        if ((data?.testStatus || "").toUpperCase() !== "ON") return;
+
+        const trackingWindow = window as Window &
+          typeof globalThis & {
+            fbq?: (...args: unknown[]) => void;
+          };
+
+        pageViewLeadTrackedRef.current = true;
+        trackingWindow.fbq?.("track", "Lead");
+      })
+      .catch(() => {
+        // If the flag cannot be loaded, keep the default behavior: PageView only.
+      });
+
+    return () => {
+      isCancelled = true;
+    };
   }, []);
 
   useEffect(() => {
