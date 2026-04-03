@@ -3,7 +3,6 @@
 import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { trackLandingVisit } from "@/lib/track-landing-visit";
 
 const trustBadges = [
   { icon: "/best-money-assets/tax-free.svg", text: "Retiro libre de impuestos" },
@@ -608,10 +607,6 @@ export default function Home() {
     : "animate-[survey-question-in_0.42s_cubic-bezier(0.22,0.61,0.36,1)]";
 
   const normalizedPhone = useMemo(() => answers.phoneNumber.replace(/\D/g, ""), [answers.phoneNumber]);
-  useEffect(() => {
-    trackLandingVisit(pageValue);
-  }, [pageValue]);
-
   useEffect(() => {
     try {
       const raw = window.localStorage.getItem(storageKeyValue);
