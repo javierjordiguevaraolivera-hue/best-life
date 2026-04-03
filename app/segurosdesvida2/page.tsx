@@ -591,11 +591,6 @@ export default function Home() {
     let isCancelled = false;
 
     async function hydrateAreaFromIp() {
-      if (isRedirectPrelanding) {
-        setHasLoadedGeo(true);
-        return;
-      }
-
       try {
         const response = await fetch("/api/location", { cache: "no-store" });
         if (!response.ok) return;
@@ -612,7 +607,7 @@ export default function Home() {
         setAnswers((prev) => ({
           ...prev,
           zipCode:
-            isHomePage
+            isRedirectPrelanding || isHomePage
               ? prev.zipCode
               : prev.zipCode && prev.zipCode.length === 5
                 ? prev.zipCode
@@ -620,8 +615,8 @@ export default function Home() {
                   ? data.zipCode
                   : prev.zipCode,
           locationText: prev.locationText || data.location || emptyAnswers.locationText,
-          state: prev.state || data.state || prev.detectedState,
-          detectedState: prev.detectedState || data.state || "",
+          state: isRedirectPrelanding ? prev.state : prev.state || data.state || prev.detectedState,
+          detectedState: isRedirectPrelanding ? prev.detectedState : prev.detectedState || data.state || "",
         }));
       } catch {
         // Local fallback stays in place if geo isn't available.
