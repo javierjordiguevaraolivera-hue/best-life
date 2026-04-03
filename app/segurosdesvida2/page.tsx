@@ -890,8 +890,8 @@ export default function Home() {
   function renderIntroPanel() {
     const detectedCity = extractCityFromLocation(answers.locationText || defaultLocationText);
     const heroClaimText = detectedCity
-      ? `Residentes de ${detectedCity} reciben hasta $250,000`
-      : "Hispanos reciben hasta $250,000";
+      ? `Residentes de ${detectedCity} reciben hasta $850,000`
+      : "Hispanos reciben hasta $850,000";
 
     return (
       <div className="mx-auto flex w-full max-w-[760px] flex-col items-center">
