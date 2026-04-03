@@ -162,6 +162,14 @@ type FunnelAnswers = {
   detectedState: string;
 };
 
+type ZipLookupResponse = {
+  location?: string | null;
+  state?: string | null;
+  zipCode?: string | null;
+  source?: "zippopotam" | "vercel-ip" | "fallback";
+  fallback?: boolean;
+};
+
 const stepOrder: FunnelStep[] = [
   "intro",
   "age",
@@ -331,6 +339,34 @@ function extractCityFromLocation(locationText: string) {
   if (!city) return "";
   if (/area|rates available/i.test(city)) return "";
   return city;
+}
+
+function normalizeZipCode(value: string) {
+  return value.replace(/\D/g, "").slice(0, 5);
+}
+
+function getZipValidationMessage(value: string) {
+  const zipCode = normalizeZipCode(value);
+
+  if (zipCode.length !== 5) {
+    return "Ingresa un ZIP code valido de EE.UU. con 5 digitos.";
+  }
+
+  return "";
+}
+
+function isResolvedUsZip(
+  data: ZipLookupResponse | null,
+  requestedZipCode: string
+) {
+  return (
+    !!data &&
+    data.source === "zippopotam" &&
+    data.fallback === false &&
+    data.zipCode === requestedZipCode &&
+    !!data.state &&
+    stateOptions.includes(data.state)
+  );
 }
 
 function normalizeMetaText(value: string) {
@@ -749,6 +785,7 @@ export default function Home() {
   const [hasLoadedGeo, setHasLoadedGeo] = useState(false);
   const [phoneError, setPhoneError] = useState("");
   const [emailError, setEmailError] = useState("");
+  const [zipError, setZipError] = useState("");
   const [submitError, setSubmitError] = useState("");
   const [isSubmittingLead, setIsSubmittingLead] = useState(false);
   const [leadEventNonce, setLeadEventNonce] = useState<string | null>(null);
@@ -767,8 +804,8 @@ export default function Home() {
     ? answers.detectedState
     : "";
   const resolvedUsState = stateOptions.includes(answers.state) ? answers.state : "";
-  const shouldAskState = !resolvedUsState && !detectedUsState;
-  const visibleQuestionSteps = shouldAskState
+  const shouldAskZipCode = !resolvedUsState && !detectedUsState;
+  const visibleQuestionSteps = shouldAskZipCode
     ? (["age", "goal", "state", "name", "phone"] as FunnelStep[])
     : (["age", "goal", "name", "phone"] as FunnelStep[]);
   const currentQuestionIndex = visibleQuestionSteps.indexOf(currentStep);
@@ -776,7 +813,6 @@ export default function Home() {
     currentQuestionIndex >= 0
       ? ((currentQuestionIndex + 1) / visibleQuestionSteps.length) * 100
       : null;
-  const selectedState = resolvedUsState || detectedUsState || "Florida";
   const animationClass = isTransitioningOut
     ? "animate-[survey-question-out_0.18s_cubic-bezier(0.4,0,1,1)_forwards]"
     : "animate-[survey-question-in_0.42s_cubic-bezier(0.22,0.61,0.36,1)]";
@@ -909,21 +945,28 @@ export default function Home() {
           return;
         }
 
-        const data = (await response.json()) as {
-          location?: string | null;
-          state?: string | null;
-        };
+        const data = (await response.json()) as ZipLookupResponse;
+
+        if (isResolvedUsZip(data, zipCode)) {
+          setAnswers((prev) => ({
+            ...prev,
+            locationText: data.location || defaultLocationText,
+            state: data.state || prev.state || prev.detectedState,
+          }));
+          return;
+        }
 
         setAnswers((prev) => ({
           ...prev,
-          locationText: data.location || defaultLocationText,
-          state: data.state || prev.state || prev.detectedState,
+          locationText: defaultLocationText,
+          state: prev.detectedState || "",
         }));
       } catch (error) {
         if ((error as Error).name !== "AbortError") {
           setAnswers((prev) => ({
             ...prev,
             locationText: defaultLocationText,
+            state: prev.detectedState || "",
           }));
         }
       } finally {
@@ -1004,9 +1047,9 @@ export default function Home() {
   ]);
 
   useEffect(() => {
-    if (currentStep !== "state" || shouldAskState) return;
+    if (currentStep !== "state" || shouldAskZipCode) return;
     transitionTo("name", "forward");
-  }, [currentStep, shouldAskState]);
+  }, [currentStep, shouldAskZipCode]);
 
   function transitionTo(nextStep: FunnelStep, direction: "forward" | "backward") {
     setSlideDirection(direction);
@@ -1024,7 +1067,7 @@ export default function Home() {
   }
 
   function goBack() {
-    if (currentStep === "name" && !shouldAskState) {
+    if (currentStep === "name" && !shouldAskZipCode) {
       transitionTo("goal", "backward");
       return;
     }
@@ -1047,6 +1090,59 @@ export default function Home() {
     window.setTimeout(() => {
       transitionTo(nextStep, "forward");
     }, 120);
+  }
+
+  async function handleZipCodeContinue() {
+    const zipCode = normalizeZipCode(answers.zipCode);
+    const zipValidationMessage = getZipValidationMessage(zipCode);
+
+    if (zipValidationMessage) {
+      setZipError(zipValidationMessage);
+      return;
+    }
+
+    setZipError("");
+    setIsLookingUpZip(true);
+
+    try {
+      const response = await fetch(`/api/zip/${zipCode}`, {
+        cache: "no-store",
+      });
+
+      if (!response.ok) {
+        throw new Error("Ingresa un ZIP code real de EE.UU.");
+      }
+
+      const data = (await response.json()) as ZipLookupResponse;
+
+      if (!isResolvedUsZip(data, zipCode)) {
+        throw new Error("Ingresa un ZIP code real de EE.UU.");
+      }
+
+      setAnswers((prev) => ({
+        ...prev,
+        zipCode,
+        locationText: data.location || defaultLocationText,
+        state: data.state || prev.state,
+      }));
+
+      transitionTo("name", "forward");
+    } catch (error) {
+      const message =
+        error instanceof Error && error.message
+          ? error.message
+          : "No pudimos validar ese ZIP code. Intenta otro.";
+
+      setAnswers((prev) => ({
+        ...prev,
+        zipCode,
+        locationText: defaultLocationText,
+        state: prev.detectedState || "",
+      }));
+      setZipError(message);
+    } finally {
+      setIsLookingUpZip(false);
+    }
   }
 
   async function submitLead() {
@@ -1491,7 +1587,7 @@ export default function Home() {
               {currentStep === "age" && "¿En qué grupo de edad estás?"}
               {currentStep === "goal" &&
                 "Cuéntame, ¿qué te gustaría lograr con un seguro de vida?"}
-              {currentStep === "state" && "Selecciona tu estado:"}
+              {currentStep === "state" && "Cual es tu ZIP code?"}
               {currentStep === "name" && "¿Cuál es tu nombre completo?"}
               {currentStep === "phone" &&
                 "¿A qué número te enviamos tu cotización personalizada?"}
@@ -1525,7 +1621,7 @@ export default function Home() {
                   key={option}
                   type="button"
                   onClick={() =>
-                    handleDirectChoice("insuranceGoal", option, shouldAskState ? "state" : "name")
+                    handleDirectChoice("insuranceGoal", option, shouldAskZipCode ? "state" : "name")
                   }
                   className={optionButtonClass(
                     answers.insuranceGoal === option,
@@ -1540,70 +1636,52 @@ export default function Home() {
 
           {currentStep === "state" ? (
             <div className={`mt-8 flex w-full max-w-[460px] flex-col gap-4 md:mt-10 ${animationClass}`}>
-              <label
-                className={`relative flex min-h-[78px] w-full cursor-pointer rounded-[16px] border bg-white px-5 py-4 text-left shadow-[0_4px_10px_rgba(16,24,32,0.08)] transition ${
-                  detectedUsState && selectedState === detectedUsState
-                    ? "border-[var(--brand)] shadow-[0_0_0_1px_var(--brand)]"
-                    : "border-[#9c9c9c]"
-                }`}
-              >
-                <span className="flex min-w-0 flex-1 flex-col">
-                  <span className="text-[17px] text-[#101820]">
-                    {selectedState}{" "}
-                    {detectedUsState && selectedState === detectedUsState ? (
-                      <span className="text-[14px] font-medium text-[var(--brand-dark)]">
-                        (Detectado)
-                      </span>
-                    ) : null}
-                  </span>
-                  <span className="mt-1 text-[13px] text-[#6b7280]">
-                    Toca para cambiarlo
-                  </span>
-                </span>
-                <span
-                  aria-hidden="true"
-                  className="ml-4 flex items-center text-[20px] text-[#101820]"
-                >
-                  <svg viewBox="0 0 24 24" className="h-[18px] w-[18px]" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6" /></svg>
-                </span>
-                <select
-                  value={selectedState}
-                  onChange={(event) =>
-                    setAnswers((prev) => ({
-                      ...prev,
-                      state: event.target.value,
-                    }))
-                  }
-                  className="absolute inset-0 cursor-pointer opacity-0"
-                >
-                  <option value={detectedUsState || "Florida"}>
-                    {detectedUsState || "Florida"}
-                  </option>
-                  {stateOptions.map((state) => (
-                    <option key={state} value={state}>
-                      {state}
-                    </option>
-                  ))}
-                </select>
-              </label>
+              <input
+                id="zip-code"
+                name="postal-code"
+                value={answers.zipCode}
+                onChange={(event) => {
+                  const zipCode = normalizeZipCode(event.target.value);
+                  setAnswers((prev) => ({
+                    ...prev,
+                    zipCode,
+                    state: zipCode === prev.zipCode ? prev.state : prev.detectedState || "",
+                  }));
+                  setZipError("");
+                }}
+                placeholder="Ej: 33101"
+                inputMode="numeric"
+                pattern="[0-9]*"
+                autoComplete="postal-code"
+                enterKeyHint="done"
+                className="h-[58px] rounded-[16px] border border-[#9c9c9c] bg-white px-5 text-[17px] text-[#101820] outline-none transition focus:border-[var(--brand)]"
+              />
+
+              <p className="min-h-[22px] text-[14px] text-[#6b7280]">
+                {resolvedUsState
+                  ? `Estado detectado: ${resolvedUsState}`
+                  : "Usamos tu ZIP code para identificar tu estado."}
+              </p>
+
+              <p className="min-h-[22px] text-[14px] text-[#d14c4c]">
+                {zipError}
+              </p>
 
               <button
                 type="button"
-                onClick={() => {
-                  if (!selectedState) return;
-                  if (!answers.state) {
-                    setAnswers((prev) => ({
-                      ...prev,
-                      state: selectedState,
-                    }));
-                  }
-                  transitionTo("name", "forward");
-                }}
-                disabled={!selectedState}
+                onClick={() => void handleZipCodeContinue()}
+                disabled={isLookingUpZip || normalizeZipCode(answers.zipCode).length !== 5}
                 className="inline-flex h-[54px] items-center justify-center gap-2 rounded-full bg-[var(--brand)] px-6 text-[18px] font-semibold text-white transition disabled:cursor-not-allowed disabled:opacity-45 hover:bg-[var(--brand-dark)]"
               >
-                <span>Confirmar ubicación</span>
-                <NextArrowIcon className="h-[18px] w-[18px]" />
+                <span>{isLookingUpZip ? "Validando ZIP code..." : "Confirmar ZIP code"}</span>
+                {isLookingUpZip ? (
+                  <span
+                    aria-hidden="true"
+                    className="h-[16px] w-[16px] rounded-full border-2 border-white/35 border-t-white animate-spin"
+                  />
+                ) : (
+                  <NextArrowIcon className="h-[18px] w-[18px]" />
+                )}
               </button>
             </div>
           ) : null}
