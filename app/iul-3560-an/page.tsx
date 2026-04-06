@@ -984,12 +984,13 @@ export default function Home() {
             <a
               href={redirectTargetUrl}
               onClick={redirectToOffer}
-              className="inline-flex w-full max-w-[500px] flex-col items-center justify-center rounded-[50px] bg-[#1a73e8] px-8 py-[22px] text-white shadow-[0_10px_20px_rgba(26,115,232,0.3)] transition-all duration-300 ease-out hover:-translate-y-[3px] hover:scale-[1.02] hover:shadow-[0_14px_28px_rgba(26,115,232,0.38)]"
+              className="inline-flex w-full max-w-[360px] flex-col items-center justify-center rounded-[30px] px-5 py-[14px] text-center text-white shadow-[0_10px_20px_rgba(26,115,232,0.3)] transition-all duration-300 ease-out hover:-translate-y-[3px] hover:scale-[1.02] hover:shadow-[0_14px_28px_rgba(26,115,232,0.38)] sm:max-w-[420px] sm:rounded-[36px] sm:px-6 sm:py-[16px]"
+              style={{ backgroundColor: "#1a73e8" }}
             >
-              <span className="text-[21px] leading-[1.15] font-extrabold text-white md:text-[24px]">
+              <span className="w-full text-center text-[18px] leading-[1.12] font-extrabold text-white sm:text-[20px] md:text-[24px]">
                 Verificar Mi Elegibilidad
               </span>
-              <span className="mt-1 block text-[13px] font-normal text-[#e0f2fe] md:text-[14px]">
+              <span className="mt-1 block w-full text-center text-[12px] leading-[1.2] font-normal text-[#e0f2fe] sm:text-[13px] md:text-[14px]">
                 (Solo para personas de 22 a 50 años)
               </span>
             </a>
