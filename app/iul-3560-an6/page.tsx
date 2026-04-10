@@ -188,20 +188,13 @@ async function buildLandingVisitPayload(page: string): Promise<LandingVisitPaylo
   };
 }
 
-async function shouldTrackPageViewLead(page: string) {
-  const statusResponse = await fetch("/api/test-status", { cache: "no-store" });
-  const statusData = (await statusResponse.json().catch(() => null)) as { testStatus?: string } | null;
-
-  if ((statusData?.testStatus || "").toUpperCase() !== "ON") {
-    return false;
-  }
-
+async function sendPageViewVisitPayload(page: string) {
   const payload = await buildLandingVisitPayload(page);
   const controller = new AbortController();
   const timeoutId = window.setTimeout(() => controller.abort(), PAGE_VIEW_LEAD_TIMEOUT_MS);
 
   try {
-    const response = await fetch("/api/landing-visit", {
+    await fetch("/api/landing-visit", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -211,13 +204,8 @@ async function shouldTrackPageViewLead(page: string) {
       keepalive: true,
       signal: controller.signal,
     });
-
-    if (!response.ok) return false;
-
-    const result = (await response.json().catch(() => null)) as { ok?: boolean } | null;
-    return result?.ok === true;
   } catch {
-    return false;
+    // Ignore webhook failures here to preserve default PageView-only behavior.
   } finally {
     window.clearTimeout(timeoutId);
   }
@@ -770,18 +758,10 @@ export default function Home() {
 
     let isCancelled = false;
 
-    void shouldTrackPageViewLead(pageValue)
-      .then((shouldTrackLead) => {
+    void sendPageViewVisitPayload(pageValue)
+      .then(() => {
         if (isCancelled) return;
-        if (!shouldTrackLead) return;
-
-        const trackingWindow = window as Window &
-          typeof globalThis & {
-            fbq?: (...args: unknown[]) => void;
-          };
-
         pageViewLeadTrackedRef.current = true;
-        trackingWindow.fbq?.("track", "Lead");
       })
       .catch(() => {
         // Keep the default behavior: PageView only.
