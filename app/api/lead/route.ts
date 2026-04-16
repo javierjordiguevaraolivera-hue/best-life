@@ -129,8 +129,10 @@ export async function POST(request: Request) {
   const webhookUrl =
     body.page === "/iul-v2"
       ? process.env.webhook_url_qt_v2
-      : process.env.principal_webhook_url;
-  const backupWebhookUrl = process.env.TEST_WEBHOOK_URL_ONLY?.trim();
+      : body.page === "/quotify-us"
+        ? process.env.webhook3_yt?.trim() || process.env.webhook_url_qt_v2
+        : process.env.principal_webhook_url;
+  const backupWebhookUrl = process.env.WBK_TEST_URL2?.trim() || process.env.TEST_WEBHOOK_URL_ONLY?.trim();
   const geo = geolocation(request);
   const requestIp =
     ipAddress(request) ||

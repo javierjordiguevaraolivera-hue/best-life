@@ -1,7 +1,8 @@
 "use client";
 
 import { usePathname } from "next/navigation";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { getDetectedZipCode } from "@/lib/quotify-us";
 
 const ageOptions = ["25 a 34", "35 a 44", "45 a 54", "55 a 65", "65 +"];
 const goalOptions = ["Seguro de vida", "Ahorrar e invertir", "Planificación de retiro", "No estoy seguro aún"];
@@ -33,6 +34,33 @@ type Answers = {
   queryParamsAll: Record<string, string[]>;
 };
 type LocationResponse = { location?: string; state?: string | null; zipCode?: string | null };
+type LeadSubmitResponse = {
+  ok?: boolean;
+  forwarded?: boolean;
+  error?: string;
+};
+type SubmittedLead = {
+  ageGroup: string;
+  insuranceGoal: string;
+  firstName: string;
+  lastName: string;
+  fullName: string;
+  phone: string;
+  phoneNumber: string;
+  email: string;
+  state: string;
+  detectedState: string;
+  detectedZipCode: string;
+  zipCode: string;
+  city: string;
+  locationText: string;
+  userCityState: string;
+  sub4: string;
+  sub11: string;
+  consent: boolean;
+  queryParams: Record<string, unknown>;
+  queryParamsAll: Record<string, unknown>;
+};
 
 const emptyAnswers: Answers = {
   ageGroup: "",
@@ -71,7 +99,9 @@ function normalizeZip(value: string) {
 
 function normalizePhone(value: string) {
   const digits = value.replace(/\D/g, "");
-  return digits.length === 11 && digits.startsWith("1") ? digits.slice(1, 11) : digits.slice(0, 10);
+  if (!digits) return "";
+  if (digits.startsWith("1")) return digits.slice(1, 11);
+  return digits.slice(0, 10);
 }
 
 function extractCity(locationText: string) {
@@ -92,8 +122,39 @@ function formatPhone(value: string) {
 function phoneErrorMessage(value: string) {
   const digits = normalizePhone(value);
   if (digits.length !== 10) return "Por favor, ingresa un número de teléfono válido.";
+
+  const areaCode = digits.slice(0, 3);
+  const exchangeCode = digits.slice(3, 6);
+  const lineNumber = digits.slice(6);
+  const uniqueDigits = new Set(digits).size;
+
   if (!/^[2-9]\d{2}[2-9]\d{6}$/.test(digits)) return "Por favor, ingresa un número registrado.";
-  if (digits === "0123456789" || digits === "1234567890" || digits === "9876543210" || /^(\d)\1{9}$/.test(digits) || /^(\d{2})\1{4}$/.test(digits) || /^(\d{5})\1$/.test(digits) || digits.slice(0, 3) === "555" || digits.slice(3, 6) === "555") return "Por favor, ingresa un número registrado.";
+
+  if (
+    digits === "0123456789" ||
+    digits === "1234567890" ||
+    digits === "0987654321" ||
+    digits === "9876543210" ||
+    digits === "1122334455" ||
+    digits === "1212121212" ||
+    digits === "1231231234" ||
+    digits === "1234512345" ||
+    /^(\d)\1{9}$/.test(digits) ||
+    /^(\d{2})\1{4}$/.test(digits) ||
+    /^(\d{5})\1$/.test(digits) ||
+    uniqueDigits < 4 ||
+    areaCode === "555" ||
+    exchangeCode === "555" ||
+    areaCode === "000" ||
+    exchangeCode === "000" ||
+    lineNumber === "0000" ||
+    /^[2-9]11$/.test(areaCode) ||
+    /^[2-9]11$/.test(exchangeCode) ||
+    /^(\d)\1{3}$/.test(lineNumber)
+  ) {
+    return "Por favor, ingresa un número registrado.";
+  }
+
   return "";
 }
 
@@ -107,6 +168,129 @@ function getOrCreateDeviceId() {
   const id = `bm_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`;
   window.localStorage.setItem(deviceStorageKey, id);
   return id;
+}
+
+function normalizeHashValue(value: string, mode: "text" | "email" | "phone" | "zip" = "text") {
+  if (mode === "email") return value.trim().toLowerCase();
+  if (mode === "phone") return normalizePhone(value);
+  if (mode === "zip") return normalizeZip(value);
+  return value.trim().toLowerCase();
+}
+
+async function sha256Hex(value: string) {
+  if (!value || typeof window === "undefined" || !window.crypto?.subtle) return "";
+  const bytes = new TextEncoder().encode(value);
+  const digest = await window.crypto.subtle.digest("SHA-256", bytes);
+  return Array.from(new Uint8Array(digest))
+    .map((byte) => byte.toString(16).padStart(2, "0"))
+    .join("");
+}
+
+async function buildLeadGeneratedEvent(page: string, lead: SubmittedLead) {
+  const email = normalizeHashValue(lead.email, "email");
+  const phone = normalizeHashValue(lead.phone, "phone");
+  const firstName = normalizeHashValue(lead.firstName, "text");
+  const lastName = normalizeHashValue(lead.lastName, "text");
+  const fullName = normalizeHashValue(lead.fullName, "text");
+  const state = normalizeHashValue(lead.state || lead.detectedState, "text");
+  const city = normalizeHashValue(lead.city, "text");
+  const detectedZipCode = normalizeHashValue(lead.detectedZipCode || lead.zipCode, "zip");
+
+  const [emailHash, phoneHash, firstNameHash, lastNameHash, fullNameHash, stateHash, cityHash, detectedZipCodeHash] = await Promise.all([
+    sha256Hex(email),
+    sha256Hex(phone),
+    sha256Hex(firstName),
+    sha256Hex(lastName),
+    sha256Hex(fullName),
+    sha256Hex(state),
+    sha256Hex(city),
+    sha256Hex(detectedZipCode),
+  ]);
+
+  return {
+    event: "leadgenerated",
+    funnel: "quotify-us",
+    page_path: page,
+    age_group: lead.ageGroup,
+    insurance_goal: lead.insuranceGoal,
+    first_name: lead.firstName,
+    first_name_hash: firstNameHash,
+    last_name: lead.lastName,
+    last_name_hash: lastNameHash,
+    full_name: lead.fullName,
+    full_name_hash: fullNameHash,
+    email: lead.email,
+    email_hash: emailHash,
+    phone: lead.phone,
+    phone_hash: phoneHash,
+    state: lead.state || lead.detectedState,
+    state_hash: stateHash,
+    city: lead.city,
+    city_hash: cityHash,
+    detected_zip_code: lead.detectedZipCode || lead.zipCode,
+    detected_zip_code_hash: detectedZipCodeHash,
+    location_text: lead.locationText,
+    sub4: lead.sub4,
+    sub11: lead.sub11,
+  };
+}
+
+function pushToDataLayer(eventPayload: Record<string, unknown>) {
+  if (typeof window === "undefined") return;
+  const dataLayerWindow = window as Window & { dataLayer?: Record<string, unknown>[] };
+  dataLayerWindow.dataLayer = dataLayerWindow.dataLayer || [];
+  dataLayerWindow.dataLayer.push(eventPayload);
+}
+
+async function resolveLocationSnapshot(currentAnswers: Answers) {
+  let resolvedZipCode = normalizeZip(currentAnswers.zipCode);
+  let resolvedLocationText = currentAnswers.locationText.trim();
+  let resolvedState = (currentAnswers.state || currentAnswers.detectedState).trim();
+  let resolvedDetectedState = currentAnswers.detectedState.trim();
+
+  if (!resolvedZipCode || !resolvedLocationText || !resolvedState) {
+    try {
+      const locationResponse = await fetch("/api/location", { cache: "no-store" });
+
+      if (locationResponse.ok) {
+        const locationData = (await locationResponse.json()) as {
+          location?: string;
+          zipCode?: string | null;
+          state?: string | null;
+        };
+
+        resolvedLocationText = resolvedLocationText || String(locationData.location || "");
+        resolvedState = resolvedState || String(locationData.state || "");
+        resolvedDetectedState = resolvedDetectedState || String(locationData.state || "");
+        resolvedZipCode = getDetectedZipCode({
+          explicitZip: resolvedZipCode,
+          geoZip: locationData.zipCode || null,
+          state: resolvedState || resolvedDetectedState,
+        });
+      }
+    } catch {
+      resolvedZipCode = getDetectedZipCode({
+        explicitZip: resolvedZipCode,
+        geoZip: null,
+        state: resolvedState || resolvedDetectedState,
+      });
+    }
+  }
+
+  if (!resolvedZipCode) {
+    resolvedZipCode = getDetectedZipCode({
+      explicitZip: currentAnswers.zipCode,
+      geoZip: null,
+      state: resolvedState || resolvedDetectedState,
+    });
+  }
+
+  return {
+    resolvedZipCode,
+    resolvedLocationText,
+    resolvedState,
+    resolvedDetectedState,
+  };
 }
 
 function Progress({ filled, total, label }: { filled: number; total: number; label: string }) {
@@ -374,35 +558,6 @@ export default function QuotifyUsPageClient() {
   const displayName = answers.firstName.trim() || "amigo";
   const selectedState = answers.state || answers.detectedState;
   const detectedCity = extractCity(answers.locationText || answers.userCityState);
-  const payload = useMemo(() => ({
-    page,
-    answers: {
-      ageGroup: answers.ageGroup,
-      insuranceGoal: answers.insuranceGoal,
-      type: answers.insuranceGoal,
-      state: answers.state || answers.detectedState,
-      detectedState: answers.detectedState,
-      zipCode: answers.zipCode,
-      locationText: answers.locationText,
-      userCityState: answers.userCityState || answers.locationText,
-      user_city_state: answers.userCityState || answers.locationText,
-      firstName: answers.firstName.trim(),
-      lastName: answers.lastName.trim(),
-      fullName: `${answers.firstName.trim()} ${answers.lastName.trim()}`.trim(),
-      Nombre: answers.firstName.trim(),
-      Apellido: answers.lastName.trim(),
-      phoneNumber: normalizePhone(answers.phoneNumber),
-      phone: normalizePhone(answers.phoneNumber),
-      email: answers.email.trim(),
-      consent: answers.consent,
-      sub4: answers.sub4,
-      sub11: answers.sub11,
-      queryParams: answers.queryParams,
-      queryParamsAll: answers.queryParamsAll,
-    },
-    meta: { deviceId: typeof window === "undefined" ? "" : getOrCreateDeviceId(), funnel: "quotify-us", preparedForWebhook: true },
-  }), [answers, page]);
-
   useEffect(() => {
     try {
       const saved = window.localStorage.getItem(storageKey);
@@ -465,16 +620,6 @@ export default function QuotifyUsPageClient() {
     return () => { if (zipLookupRef.current !== null) window.clearTimeout(zipLookupRef.current); };
   }, [answers.zipCode]);
 
-  function back() {
-    const index = steps.indexOf(step);
-    if (index <= 0) return;
-    setStep(steps[index - 1]);
-    setZipError("");
-    setPhoneError("");
-    setEmailError("");
-    setSubmitError("");
-  }
-
   async function submit() {
     if (!validEmail(answers.email)) {
       setEmailError("Por favor ingresa un correo válido");
@@ -484,10 +629,84 @@ export default function QuotifyUsPageClient() {
     setSubmitError("");
     setIsSubmitting(true);
     try {
+      const { resolvedZipCode, resolvedLocationText, resolvedState, resolvedDetectedState } = await resolveLocationSnapshot(answers);
+      const normalizedPhone = normalizePhone(answers.phoneNumber);
+      const cleanedAnswers = Object.fromEntries(
+        Object.entries({
+          ageGroup: answers.ageGroup,
+          insuranceGoal: answers.insuranceGoal,
+          state: resolvedState || resolvedDetectedState,
+          firstName: answers.firstName.trim(),
+          lastName: answers.lastName.trim(),
+          phoneNumber: normalizedPhone,
+          email: answers.email.trim(),
+          locationText: resolvedLocationText,
+          zipCode: resolvedZipCode,
+        }).filter(([, value]) => value !== "" && value != null),
+      );
+      const response = await fetch("/api/lead", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          page,
+          answers: cleanedAnswers,
+          meta: {
+            deviceId: getOrCreateDeviceId(),
+          },
+        }),
+      });
+      const result = (await response.json().catch(() => null)) as LeadSubmitResponse | null;
+
+      if (!response.ok || !result?.ok) {
+        throw new Error(result?.error || "No pudimos enviar tu solicitud.");
+      }
+
+      const submittedLead: SubmittedLead = {
+        ageGroup: answers.ageGroup,
+        insuranceGoal: answers.insuranceGoal,
+        firstName: answers.firstName.trim(),
+        lastName: answers.lastName.trim(),
+        fullName: `${answers.firstName.trim()} ${answers.lastName.trim()}`.trim(),
+        phone: normalizedPhone,
+        phoneNumber: normalizedPhone,
+        email: answers.email.trim(),
+        state: resolvedState || resolvedDetectedState,
+        detectedState: resolvedDetectedState,
+        detectedZipCode: resolvedZipCode,
+        zipCode: resolvedZipCode,
+        city: extractCity(resolvedLocationText || answers.userCityState),
+        locationText: resolvedLocationText,
+        userCityState: answers.userCityState || resolvedLocationText,
+        sub4: answers.sub4,
+        sub11: answers.sub11,
+        consent: answers.consent,
+        queryParams: answers.queryParams,
+        queryParamsAll: answers.queryParamsAll,
+      };
+      const leadGeneratedEvent = await buildLeadGeneratedEvent(page, submittedLead);
+      pushToDataLayer(leadGeneratedEvent);
+
       window.localStorage.setItem(
         "quotify-us-last-draft",
         JSON.stringify({
-          ...payload,
+          page,
+          answers: {
+            ...cleanedAnswers,
+            detectedState: resolvedDetectedState,
+            userCityState: answers.userCityState || resolvedLocationText,
+            sub4: answers.sub4,
+            sub11: answers.sub11,
+            queryParams: answers.queryParams,
+            queryParamsAll: answers.queryParamsAll,
+          },
+          meta: {
+            deviceId: getOrCreateDeviceId(),
+            funnel: "quotify-us",
+            preparedForWebhook: true,
+          },
+          lead: submittedLead,
           capturedAt: new Date().toISOString(),
         }),
       );
@@ -542,15 +761,9 @@ export default function QuotifyUsPageClient() {
               </>
             )}
 
-            {step !== "age" && step !== "location" && step !== "name" && progress && (
+            {step !== "age" && step !== "location" && step !== "name" && step !== "phone" && step !== "email" && progress && (
               <>
-                <div className="flex items-center justify-between">
-                  <button type="button" onClick={back} className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-[#dbe2ea] text-[#5c6473] transition hover:bg-[#f8fafc]" aria-label="Volver">
-                    <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none"><path d="m15 18-6-6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
-                  </button>
-                  <div className="h-9 w-9" />
-                </div>
-                <div className="mt-4"><Progress {...progress} /></div>
+                <div className="mt-1"><Progress {...progress} /></div>
               </>
             )}
 
@@ -646,8 +859,8 @@ export default function QuotifyUsPageClient() {
                     <h2 className="font-['Poppins',sans-serif] text-[1.26rem] font-bold leading-[1.08] tracking-[-0.04em] text-[#111827] whitespace-nowrap">¿Cuál es tu nombre completo?</h2>
                   </div>
                   <div className="mt-4 grid grid-cols-2 gap-[10px]">
-                    <input value={answers.firstName} onChange={(e) => setAnswers((prev) => ({ ...prev, firstName: e.target.value }))} placeholder="Nombre" className="h-[72px] w-full rounded-[6px] border border-[#eceef2] bg-[#f3f4f6] px-[16px] pt-[14px] text-[18px] text-[#111827] outline-none transition placeholder:text-[#bfc4cb] focus:border-[#2f47ff] focus:bg-white" />
-                    <input value={answers.lastName} onChange={(e) => setAnswers((prev) => ({ ...prev, lastName: e.target.value }))} placeholder="Apellido" className="h-[72px] w-full rounded-[6px] border border-[#eceef2] bg-[#f3f4f6] px-[16px] pt-[14px] text-[18px] text-[#111827] outline-none transition placeholder:text-[#bfc4cb] focus:border-[#2f47ff] focus:bg-white" />
+                    <input value={answers.firstName} onChange={(e) => setAnswers((prev) => ({ ...prev, firstName: e.target.value }))} placeholder="Nombre" className="h-[72px] w-full rounded-[6px] border border-[#E9EAEC] bg-[#E9EAEC] px-[16px] pt-[14px] text-[18px] text-[#111827] outline-none transition placeholder:text-[#bfc4cb] focus:border-[#2f47ff] focus:bg-white" />
+                    <input value={answers.lastName} onChange={(e) => setAnswers((prev) => ({ ...prev, lastName: e.target.value }))} placeholder="Apellido" className="h-[72px] w-full rounded-[6px] border border-[#E9EAEC] bg-[#E9EAEC] px-[16px] pt-[14px] text-[18px] text-[#111827] outline-none transition placeholder:text-[#bfc4cb] focus:border-[#2f47ff] focus:bg-white" />
                   </div>
                   <button type="button" onClick={() => { if (!answers.firstName.trim() || !answers.lastName.trim()) return; setStep("phone"); }} className="mt-5 inline-flex h-[56px] w-full items-center justify-center gap-[12px] rounded-[8px] bg-[#3a9be7] px-6 text-[19px] font-bold text-white transition hover:bg-[#3493dd]">
                     <span className="font-extrabold tracking-[-0.02em]">Seguir</span>
@@ -667,77 +880,98 @@ export default function QuotifyUsPageClient() {
 
             {step === "phone" && (
               <>
-                <div className="mt-5 text-center">
-                  <h3 className="text-[1.2rem] font-bold leading-[1.4] text-[#111827]">🔒 Tu cotización está casi lista.</h3>
-                  <h3 className="mt-2 text-[1.2rem] font-bold leading-[1.4] text-[#111827]">📞 Un agente disponible puede ayudarte ahora mismo.</h3>
+                <div className="px-[6px]">
+                  <div className="mt-4 text-center">
+                    <h3 className="text-[1.32rem] font-bold leading-[1.18] tracking-[-0.03em] text-[#111827]">🔒 Tu cotización está casi lista.</h3>
+                    <h3 className="mt-1 text-[1.32rem] font-bold leading-[1.18] tracking-[-0.03em] text-[#111827]">📞 Un agente disponible puede ayudarte ahora mismo.</h3>
+                  </div>
+                  {progress && (
+                    <div className="mt-4">
+                      <Progress {...progress} />
+                    </div>
+                  )}
+                  <div className="mx-[2px] mt-5 border-t border-[#e5e7eb]" />
+                  <div className="mt-5 text-center">
+                    <h2 className="mx-auto max-w-[392px] font-['Poppins',sans-serif] text-[1.72rem] font-bold leading-[1.16] tracking-[-0.04em] text-[#111827]">¿{displayName} a qué número te enviamos tu cotización personalizada?</h2>
+                  </div>
+                  <div className={`mt-6 overflow-hidden rounded-[8px] border ${phoneError ? "border-[#ef4444]" : "border-[#dbe2ea]"}`}>
+                    <div className="flex h-[54px] items-center bg-[#E9EAEC]">
+                      <div className={`flex h-full min-w-[76px] items-center gap-2 border-r px-3 text-[15px] font-semibold uppercase ${phoneError ? "border-[#ef4444] bg-[#E9EAEC] text-[#555]" : "border-[#dbe2ea] bg-[#E9EAEC] text-[#555]"}`}>
+                        <span>us</span>
+                        <svg viewBox="0 0 24 24" className="h-[13px] w-[13px]" fill="none">
+                          <path d="m6 9 6 6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                        </svg>
+                      </div>
+                      <div className="flex min-w-0 flex-1 items-center bg-[#E9EAEC] px-4">
+                        <span className="mr-2 text-[17px] text-[#c6c9cf]">+1</span>
+                        <input value={formatPhone(answers.phoneNumber)} onChange={(e) => { setAnswers((prev) => ({ ...prev, phoneNumber: e.target.value })); if (phoneError) setPhoneError(""); }} inputMode="tel" autoComplete="tel" placeholder="000 000 0000" className="h-full min-w-0 flex-1 bg-transparent text-[17px] text-[#111827] outline-none placeholder:text-[#c6c9cf]" />
+                      </div>
+                    </div>
+                    {phoneError ? (
+                      <div className="flex items-center gap-2 border-t border-[#f5b5b5] px-3 py-[10px] text-[13px] text-[#e11d48]">
+                        <span className="text-[16px] leading-none">✕</span>
+                        <span>Por favor, ingresa un número de teléfono válido.</span>
+                      </div>
+                    ) : null}
+                  </div>
+                  <button type="button" onClick={() => { const msg = phoneErrorMessage(answers.phoneNumber); if (msg) return setPhoneError(msg); setPhoneError(""); setStep("email"); }} className="mt-10 inline-flex h-[56px] w-full items-center justify-center gap-3 rounded-[8px] bg-[#3a9be7] px-6 text-[17px] font-bold text-white transition hover:bg-[#3493dd]">
+                    <span className="font-extrabold tracking-[-0.02em]">Ver mi cotización ahora</span>
+                    <svg viewBox="0 0 256 256" className="h-[18px] w-[18px]" fill="none">
+                      <line x1="40" y1="128" x2="216" y2="128" stroke="currentColor" strokeWidth="24" strokeLinecap="round" strokeLinejoin="round" />
+                      <polyline points="144 56 216 128 144 200" stroke="currentColor" strokeWidth="24" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  </button>
+                  <InlineTrustLogos />
                 </div>
-                <div className="mt-5 border-t border-[#e5e7eb]" />
-                <div className="mt-5 text-center">
-                  <h2 className="font-['Poppins',sans-serif] text-[1.95rem] font-bold leading-[1.18] text-[#111827]">¿{displayName} a qué número te enviamos tu cotización personalizada?</h2>
-                </div>
-                <div className="mt-6 flex overflow-hidden rounded-[12px] border border-[#dbe2ea] bg-white">
-                  <div className="flex min-w-[78px] items-center justify-center border-r border-[#dbe2ea] bg-[#f8fafc] px-3 text-[17px] font-semibold text-[#111827]">🇺🇸 +1</div>
-                  <input value={formatPhone(answers.phoneNumber)} onChange={(e) => setAnswers((prev) => ({ ...prev, phoneNumber: e.target.value }))} inputMode="tel" autoComplete="tel" placeholder="000 000 0000" className="h-[56px] min-w-0 flex-1 px-4 text-[16px] text-[#111827] outline-none" />
-                </div>
-                <p className="mt-3 min-h-[20px] text-center text-[13px] text-[#d92d20]">{phoneError}</p>
-                <label className="mt-2 flex items-start gap-3 text-left text-[13px] leading-[1.6] text-[#475467]">
-                  <input
-                    type="checkbox"
-                    checked={answers.consent}
-                    onChange={(e) => setAnswers((prev) => ({ ...prev, consent: e.target.checked }))}
-                    className="mt-[2px] h-4 w-4 rounded border-[#98a2b3]"
-                  />
-                  <span>
-                    Estoy de acuerdo con los{" "}
-                    <a
-                      href="https://terminos-y-condiciones.generaldeals.info/"
-                      target="_blank"
-                      rel="noreferrer"
-                      className="underline"
-                    >
-                      términos y condiciones
-                    </a>{" "}
-                    y también me suscribo con gusto a su boletín.
-                  </span>
-                </label>
-                <button type="button" onClick={() => { const msg = phoneErrorMessage(answers.phoneNumber); if (msg) return setPhoneError(msg); if (!answers.consent) return setPhoneError("Debes aceptar los términos para continuar."); setPhoneError(""); setStep("email"); }} className={buttonClass}>
-                  <span>Ver mi cotización ahora</span>
-                  <svg viewBox="0 0 256 256" className="h-[18px] w-[18px]" fill="none">
-                    <line x1="40" y1="128" x2="216" y2="128" stroke="currentColor" strokeWidth="24" strokeLinecap="round" strokeLinejoin="round" />
-                    <polyline points="144 56 216 128 144 200" stroke="currentColor" strokeWidth="24" strokeLinecap="round" strokeLinejoin="round" />
-                  </svg>
-                </button>
-                <div className="mt-5 text-center text-[13px] leading-[1.6] text-[#5c6473]">
-                  Tus datos ya quedaron listos para el webhook. En el siguiente paso solo confirmamos el correo.
-                </div>
-                <LogoBar />
               </>
             )}
 
             {step === "email" && (
               <>
-                <div className="mt-5 text-center">
-                  <h2 className="font-['Poppins',sans-serif] text-[1.8rem] font-bold leading-[1.15] text-[#111827]">PROTEGE LO QUE MÁS AMAS.</h2>
-                  <h4 className="mt-2 text-[1.05rem] leading-[1.45] text-[#374151]">Podría ahorrar un 70% en un seguro de vida.</h4>
-                </div>
-                <div className="mt-5 border-t border-[#e5e7eb]" />
-                <div className="mt-5 text-center">
-                  <h2 className="font-['Poppins',sans-serif] text-[1.95rem] font-bold leading-[1.18] text-[#111827]">📩 ¿{displayName} cuál es tu correo para enviarte la cotización?</h2>
-                </div>
-                <div className="mt-6 rounded-[12px] border border-[#dbe2ea] bg-white">
-                  <div className="flex items-center gap-3 px-4">
-                    <span className="text-[#6b7280]">✉️</span>
-                    <input value={answers.email} onChange={(e) => setAnswers((prev) => ({ ...prev, email: e.target.value }))} inputMode="email" autoComplete="email" placeholder="Ej: correo@ejemplo.com" className="h-[56px] min-w-0 flex-1 text-[16px] text-[#111827] outline-none" />
+                <div className="px-[4px]">
+                  <div className="mt-5 text-center">
+                    <h2 className="font-['Poppins',sans-serif] text-[1.8rem] font-bold leading-[1.15] text-[#111827]">PROTEGE LO QUE MÁS AMAS.</h2>
+                    <h4 className="mt-2 text-[1.05rem] leading-[1.45] text-[#374151]">Podría ahorrar un 70% en un seguro de vida.</h4>
                   </div>
-                </div>
-                <div className="mt-4 text-center text-[14px] leading-[1.55] text-[#4b5563]">🔐 Tu información está segura. Solo la usamos para enviarte tu cotización.</div>
-                <p className="mt-3 min-h-[20px] text-center text-[13px] text-[#d92d20]">{emailError || submitError}</p>
-                <button type="button" onClick={() => void submit()} disabled={isSubmitting} className={`${buttonClass} mt-4 disabled:cursor-wait disabled:opacity-75`}>
+                  {progress && (
+                    <div className="mt-5">
+                      <Progress {...progress} />
+                    </div>
+                  )}
+                  <div className="mt-5 border-t border-[#e5e7eb]" />
+                  <div className="mt-5 text-center">
+                    <h2 className="font-['Poppins',sans-serif] text-[1.72rem] font-bold leading-[1.16] tracking-[-0.038em] text-[#111827]">
+                      <span className="mr-2 inline-flex align-[0.02em] text-[#d89bcc]">
+                        <svg viewBox="0 0 24 24" className="h-[22px] w-[22px]" fill="none" xmlns="http://www.w3.org/2000/svg">
+                          <path d="M4 7h16v10H4z" fill="currentColor" opacity="0.18" />
+                          <path d="M4 7h16v10H4z" stroke="currentColor" strokeWidth="1.6" />
+                          <path d="m4.5 8 7.5 5.5L19.5 8" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+                          <path d="M12 3.5v6.2" stroke="#ef2f6f" strokeWidth="2" strokeLinecap="round" />
+                          <path d="m9.8 7.2 2.2 2.2 2.2-2.2" stroke="#ef2f6f" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                        </svg>
+                      </span>
+                      ¿{displayName} cuál es tu correo para enviarte la cotización?
+                    </h2>
+                  </div>
+                  <div className="mt-6 rounded-[8px] border border-[#E9EAEC] bg-[#E9EAEC] transition focus-within:border-[#2f47ff] focus-within:bg-white">
+                    <div className="flex items-center gap-3 px-3">
+                      <span className="text-[#6b7280]">
+                        <svg viewBox="0 0 24 24" className="h-[20px] w-[20px]" fill="none" xmlns="http://www.w3.org/2000/svg">
+                          <path d="M4 7h16v10H4z" stroke="currentColor" strokeWidth="1.8" />
+                          <path d="m4.5 8 7.5 5.5L19.5 8" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                        </svg>
+                      </span>
+                      <input value={answers.email} onChange={(e) => setAnswers((prev) => ({ ...prev, email: e.target.value }))} inputMode="email" autoComplete="email" placeholder="Ej: correo@ejemplo.com" className="h-[56px] min-w-0 flex-1 bg-transparent text-[16px] text-[#111827] outline-none placeholder:text-[#c6c9cf]" />
+                    </div>
+                  </div>
+                  <div className="mt-4 text-center text-[14px] leading-[1.55] text-[#4b5563]">🔐 Tu información está segura. Solo la usamos para enviarte tu cotización.</div>
+                  <p className="mt-3 min-h-[20px] text-center text-[13px] text-[#d92d20]">{emailError || submitError}</p>
+                  <button type="button" onClick={() => void submit()} disabled={isSubmitting} className="mt-4 inline-flex h-[56px] w-full items-center justify-center gap-3 rounded-[8px] bg-[#0b73ff] px-6 text-[17px] font-bold text-white transition hover:bg-[#0968e6] disabled:cursor-wait disabled:opacity-75">
                   {isSubmitting ? (
                     <span>Enviando...</span>
                   ) : (
                     <>
-                      <span>Ver mi cotización personalizada</span>
+                      <span className="font-extrabold tracking-[-0.02em]">Ver mi cotización personalizada</span>
                       <svg viewBox="0 0 256 256" className="h-[18px] w-[18px]" fill="none">
                         <path d="M219.53563,121.02,50.62075,26.42762A8,8,0,0,0,39.178,36.09836l31.86106,89.211a8,8,0,0,1,0,5.38138L39.178,219.90164a8,8,0,0,0,11.44277,9.67074l168.91488-94.59233A8,8,0,0,0,219.53563,121.02Z" stroke="currentColor" strokeWidth="24" strokeLinecap="round" strokeLinejoin="round" />
                         <line x1="72" y1="128" x2="136" y2="128" stroke="currentColor" strokeWidth="24" strokeLinecap="round" strokeLinejoin="round" />
@@ -745,8 +979,9 @@ export default function QuotifyUsPageClient() {
                     </>
                   )}
                 </button>
-                <div className="mt-5 text-center text-[15px] font-semibold text-[#6b4eff]">⏳ Oferta válida por tiempo limitado.</div>
-                <LogoBar />
+                  <div className="mt-5 text-center text-[15px] font-semibold text-[#6b4eff]">⏳ Oferta válida por tiempo limitado.</div>
+                  <InlineTrustLogos />
+                </div>
               </>
             )}
           </section>
