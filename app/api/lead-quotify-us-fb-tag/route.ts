@@ -129,7 +129,7 @@ export async function POST(request: Request) {
   const webhookUrl =
     body.page === "/iul-v2"
       ? process.env.webhook_url_qt_v2
-      : body.page === "/quotify-us-fb"
+      : body.page === "/quotify-us-fb-tag"
         ? process.env.webhook3_yt?.trim() || process.env.webhook_url_qt_v2
       : body.page === "/quotify-us"
         ? process.env.webhook3_yt?.trim() || process.env.webhook_url_qt_v2

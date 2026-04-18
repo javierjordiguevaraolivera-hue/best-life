@@ -90,10 +90,10 @@ const progressMap: Partial<Record<Step, { filled: number; total: number; label: 
 };
 
 const steps: Step[] = ["age", "goal", "location", "name", "phone", "email", "success"];
-const storageKey = "quotify-us-fb-funnel-v1";
+const storageKey = "quotify-us-fb-tag-funnel-v1";
 const deviceStorageKey = "best-money-device-id";
-const formId = "quotify-us-fb-form";
-const formName = "quotify_us_fb_life_insurance_form";
+const formId = "quotify-us-fb-tag-form";
+const formName = "quotify_us_fb_tag_life_insurance_form";
 
 function normalizeZip(value: string) {
   return value.replace(/\D/g, "").slice(0, 5);
@@ -211,7 +211,7 @@ async function buildLeadGeneratedEvent(page: string, lead: SubmittedLead) {
 
   return {
     event: "leadgenerated",
-    funnel: "quotify-us-fb",
+    funnel: "quotify-us-fb-tag",
     form_id: formId,
     form_name: formName,
     page_path: page,
@@ -244,18 +244,6 @@ function pushToDataLayer(eventPayload: Record<string, unknown>) {
   const dataLayerWindow = window as Window & { dataLayer?: Record<string, unknown>[] };
   dataLayerWindow.dataLayer = dataLayerWindow.dataLayer || [];
   dataLayerWindow.dataLayer.push(eventPayload);
-}
-
-function trackFbLead() {
-  if (typeof window === "undefined") return;
-  const fbWindow = window as Window & {
-    fbq?: ((action: string, eventName: string, payload?: Record<string, unknown>) => void) & {
-      callMethod?: (...args: unknown[]) => void;
-      queue?: unknown[];
-    };
-  };
-
-  fbWindow.fbq?.("track", "Lead");
 }
 
 async function resolveLocationSnapshot(currentAnswers: Answers) {
@@ -569,7 +557,7 @@ export default function QuotifyUsPageClient() {
   const [submitError, setSubmitError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const zipLookupRef = useRef<number | null>(null);
-  const page = pathname || "/quotify-us-fb";
+  const page = pathname || "/quotify-us-fb-tag";
   const progress = progressMap[step];
   const displayName = answers.firstName.trim() || "amigo";
   const selectedState = answers.state || answers.detectedState;
@@ -660,7 +648,7 @@ export default function QuotifyUsPageClient() {
           zipCode: resolvedZipCode,
         }).filter(([, value]) => value !== "" && value != null),
       );
-      const response = await fetch("/api/lead-quotify-us-fb", {
+      const response = await fetch("/api/lead-quotify-us-fb-tag", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -703,10 +691,9 @@ export default function QuotifyUsPageClient() {
       };
       const leadGeneratedEvent = await buildLeadGeneratedEvent(page, submittedLead);
       pushToDataLayer(leadGeneratedEvent);
-      trackFbLead();
 
       window.localStorage.setItem(
-        "quotify-us-fb-last-draft",
+        "quotify-us-fb-tag-last-draft",
         JSON.stringify({
           page,
           answers: {
@@ -720,7 +707,7 @@ export default function QuotifyUsPageClient() {
           },
           meta: {
             deviceId: getOrCreateDeviceId(),
-            funnel: "quotify-us-fb",
+            funnel: "quotify-us-fb-tag",
             preparedForWebhook: true,
           },
           lead: submittedLead,
