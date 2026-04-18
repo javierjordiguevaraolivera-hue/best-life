@@ -1286,44 +1286,8 @@ export default function Home() {
       >
         <div className="w-full max-w-[800px] px-[10px] py-[10px]">
           <div className="text-center">
-            <h1 className="mx-auto max-w-[330px] text-[31px] leading-[1.34] font-semibold text-[#0d2b5b] md:max-w-none md:text-[52px] md:leading-[1.14] md:font-extrabold">
-              <span className="block">Plan Financiero de</span>
-              <span className="relative mt-1 inline-block text-[0.86em] leading-[1.12] md:text-[1em]">
-                <span className="relative z-10">Crecimiento Indexado</span>
-                <svg
-                  aria-hidden="true"
-                  viewBox="0 0 260 28"
-                  preserveAspectRatio="none"
-                  className="absolute -right-[2%] -bottom-[0.2em] -left-[2%] h-[0.5em] w-[104%]"
-                >
-                  <path
-                    d="M5 15 C 40 19, 75 12, 110 15 C 145 18, 182 12, 220 15 C 232 16, 243 14, 255 13"
-                    stroke="#ef4444"
-                    strokeWidth="3.2"
-                    strokeLinecap="round"
-                    fill="none"
-                    opacity="0.8"
-                  />
-                  <path
-                    d="M7 18 C 38 21, 72 15, 108 18 C 145 20, 180 14, 217 17 C 229 17, 241 16, 252 15"
-                    stroke="#f87171"
-                    strokeWidth="2.1"
-                    strokeLinecap="round"
-                    fill="none"
-                    opacity="0.65"
-                    strokeDasharray="2.2 2.8"
-                  />
-                  <path
-                    d="M10 13 C 42 16, 75 10, 111 13 C 148 16, 184 10, 220 13"
-                    stroke="#dc2626"
-                    strokeWidth="1.6"
-                    strokeLinecap="round"
-                    fill="none"
-                    opacity="0.55"
-                    strokeDasharray="1.5 3.2"
-                  />
-                </svg>
-              </span>
+            <h1 className="mx-auto max-w-[330px] text-[31px] leading-[1.34] font-extrabold text-[#0d2b5b] md:max-w-none md:text-[52px] md:leading-[1.14]">
+              Plan Estratégico de Ahorro IUL 2026
             </h1>
             <p className="mx-auto mt-4 max-w-[340px] border-b-2 border-[#f1f5f9] pb-[15px] text-[13px] leading-[1.2] text-[#64748b] md:max-w-none md:text-[18px]">
               Exclusivo para residentes de 22 a 50 años
