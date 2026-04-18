@@ -17,6 +17,8 @@ const DISABLED_PIXEL_PATHS = new Set([
   '/iul-quotify2',
   '/iul-webpagos',
   '/pagosenvida2',
+  '/quotify-us',
+  '/quotify-us-fb-tag',
   '/seguroparavida',
   '/segurosdesvida',
   '/segurosdesvida2',
