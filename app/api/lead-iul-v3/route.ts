@@ -165,26 +165,6 @@ export async function POST(request: Request) {
     );
   }
 
-  if (duplicatePhoneCount >= 3) {
-    return NextResponse.json(
-      {
-        error: "Ese numero ya fue enviado demasiadas veces. Usa un numero real y unico.",
-        riskFlags,
-      },
-      { status: 429 }
-    );
-  }
-
-  if (ipVelocityCount >= 8 || deviceVelocityCount >= 6) {
-    return NextResponse.json(
-      {
-        error: "Detectamos demasiados intentos seguidos. Espera un momento y vuelve a intentarlo.",
-        riskFlags,
-      },
-      { status: 429 }
-    );
-  }
-
   const { phoneNumber: _ignoredPhone, ...restAnswers } = cleanedAnswers;
   const payload = {
     submittedAt: new Date().toISOString(),

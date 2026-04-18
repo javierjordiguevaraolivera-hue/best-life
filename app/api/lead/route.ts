@@ -140,7 +140,6 @@ export async function POST(request: Request) {
     "unknown";
   const phoneValidation = validateUsPhone(body.answers.phoneNumber);
   const deviceId = String(body.meta?.deviceId || "").trim();
-  const skipAttemptThrottling = body.page === "/quotify-us";
   const now = Date.now();
   const duplicatePhoneCount = phoneValidation.normalized
     ? pruneAndCount(phoneAttempts, phoneValidation.normalized, PHONE_WINDOW_MS, now)
@@ -168,26 +167,6 @@ export async function POST(request: Request) {
         riskFlags,
       },
       { status: 422 }
-    );
-  }
-
-  if (!skipAttemptThrottling && duplicatePhoneCount >= 3) {
-    return NextResponse.json(
-      {
-        error: "Ese numero ya fue enviado demasiadas veces. Usa un numero real y unico.",
-        riskFlags,
-      },
-      { status: 429 }
-    );
-  }
-
-  if (!skipAttemptThrottling && (ipVelocityCount >= 8 || deviceVelocityCount >= 6)) {
-    return NextResponse.json(
-      {
-        error: "Detectamos demasiados intentos seguidos. Espera un momento y vuelve a intentarlo.",
-        riskFlags,
-      },
-      { status: 429 }
     );
   }
 
