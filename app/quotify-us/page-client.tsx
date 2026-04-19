@@ -739,7 +739,7 @@ export default function QuotifyUsPageClient() {
           <section className="min-h-[100dvh] bg-white px-[3px] py-5">
             {step === "age" && (
               <>
-                <div className="rounded-[16px] border-b-[3px] border-[#ffd700] bg-[#fff8dc] px-4 py-4 text-center">
+                <div className="rounded-[16px] border-b-[3px] border-[#7ecf9a] bg-[#edf9f1] px-4 py-4 text-center">
                   <div className="mx-auto max-w-[370px] font-['Poppins',sans-serif] text-[1.6rem] font-bold leading-[1.05] tracking-[-0.038em] text-[#111]">
                     ⚠️ ATENCIÓN: Nuevo Programa de Seguro de Vida – Disponible{detectedCity ? ` en ${detectedCity}!` : "!"}
                   </div>
@@ -760,6 +760,11 @@ export default function QuotifyUsPageClient() {
                     {ageOptions.map((option) => (
                       <ChoiceButton key={option} label={option} selected={answers.ageGroup === option} onClick={() => { setAnswers((prev) => ({ ...prev, ageGroup: option })); window.setTimeout(() => setStep("goal"), 120); }} />
                     ))}
+                  </div>
+                  <div className="mt-5 rounded-[12px] border border-[#fde68a] bg-[#fff9db] px-4 py-3 text-center">
+                    <p className="text-[14px] font-semibold leading-[1.4] text-[#7c5a00]">
+                      ⚠️ Este programa es exclusivo para personas entre 25 años y 55 años de edad.
+                    </p>
                   </div>
                 </div>
               </>
