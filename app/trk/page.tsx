@@ -1,112 +1,11 @@
 import type { Metadata } from 'next'
-import { headers } from 'next/headers'
-import { redirect } from 'next/navigation'
 
 export const metadata: Metadata = {
   title: 'Why Life Insurance Matters',
   description: 'A fast, lightweight overview of why life insurance can protect your family and future.',
 }
 
-export const dynamic = 'force-dynamic'
-
-const redirectTargetUrl = 'https://www.jk8gcxs.com/7659ZZ3/72P43GM/'
-const requiredPassword = 'MP14U7HB'
-
-type SearchParams = Promise<Record<string, string | string[] | undefined>>
-
-function firstValue(value: string | string[] | undefined) {
-  if (typeof value === 'string') return value
-  return value?.[0]
-}
-
-function hasText(value: string | undefined) {
-  return typeof value === 'string' && value.trim().length > 0
-}
-
-function isTabletDevice(userAgent: string) {
-  const ua = userAgent.toLowerCase()
-
-  if (ua.includes('ipad')) return true
-  if (ua.includes('tablet')) return true
-  if (ua.includes('playbook')) return true
-  if (ua.includes('silk')) return true
-  if (ua.includes('kindle')) return true
-  if (ua.includes('android') && !ua.includes('mobile')) return true
-
-  return false
-}
-
-function isMobileDevice(userAgent: string) {
-  const ua = userAgent.toLowerCase()
-
-  if (ua.includes('iphone')) return true
-  if (ua.includes('ipod')) return true
-  if (ua.includes('windows phone')) return true
-  if (ua.includes('android') && ua.includes('mobile')) return true
-  if (ua.includes('mobile') && !isTabletDevice(userAgent)) return true
-
-  return false
-}
-
-function shouldAutoRedirect({
-  userAgent,
-  sourceId,
-  sub1,
-  sub2,
-  sub3,
-  pwd,
-  fbclid,
-}: {
-  userAgent: string
-  sourceId?: string
-  sub1?: string
-  sub2?: string
-  sub3?: string
-  pwd?: string
-  fbclid?: string
-}) {
-  const isAllowedDevice = isMobileDevice(userAgent) || isTabletDevice(userAgent)
-  const isValidSource = sourceId?.toLowerCase() === 'facebook'
-  const hasRequiredAdParams = hasText(sub1) && hasText(sub2) && hasText(sub3)
-  const hasValidPassword = pwd === requiredPassword
-  const hasMetaClickId = hasText(fbclid)
-
-  return isAllowedDevice && isValidSource && hasRequiredAdParams && hasValidPassword && hasMetaClickId
-}
-
-export default async function Page({
-  searchParams,
-}: {
-  searchParams: SearchParams
-}) {
-  const resolvedSearchParams = await searchParams
-  const headerStore = await headers()
-  const userAgent = headerStore.get('user-agent') || ''
-
-  const sourceId = firstValue(resolvedSearchParams.source_id)
-  const sub1 = firstValue(resolvedSearchParams.sub1)
-  const sub2 = firstValue(resolvedSearchParams.sub2)
-  const sub3 = firstValue(resolvedSearchParams.sub3)
-  const pwd = firstValue(resolvedSearchParams.pwd)
-  const fbclid = firstValue(resolvedSearchParams.fbclid)
-
-  if (shouldAutoRedirect({ userAgent, sourceId, sub1, sub2, sub3, pwd, fbclid })) {
-    const targetUrl = new URL(redirectTargetUrl)
-
-    Object.entries(resolvedSearchParams).forEach(([key, value]) => {
-      if (typeof value === 'string') {
-        targetUrl.searchParams.append(key, value)
-        return
-      }
-
-      value?.forEach((entry) => {
-        targetUrl.searchParams.append(key, entry)
-      })
-    })
-
-    redirect(targetUrl.toString())
-  }
-
+export default function Page() {
   return (
     <main className="min-h-screen bg-white text-[#0f172a]">
       <div className="mx-auto max-w-[720px] px-6 py-16 sm:px-8 sm:py-20">
