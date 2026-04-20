@@ -130,7 +130,7 @@ export async function POST(request: Request) {
     body.page === "/iul-v2"
       ? process.env.webhook_url_qt_v2
       : body.page === "/quotify-us-fb"
-        ? process.env.webhook3_yt?.trim() || process.env.webhook_url_qt_v2
+        ? process.env.webhook_url_qt_v2
       : body.page === "/quotify-us"
         ? process.env.webhook3_yt?.trim() || process.env.webhook_url_qt_v2
         : process.env.principal_webhook_url;
