@@ -4,6 +4,7 @@ import Script from 'next/script'
 import { usePathname } from 'next/navigation'
 
 const DISABLED_PIXEL_PATHS = new Set([
+  '/3560-an-pre3',
   '/3560-an-red',
   '/estrategiafinancierausa',
   '/generaldeals3',
