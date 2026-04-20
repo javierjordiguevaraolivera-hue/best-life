@@ -24,6 +24,7 @@ const DISABLED_PIXEL_PATHS = new Set([
   '/seguroparavida',
   '/segurosdesvida',
   '/segurosdesvida2',
+  '/trk',
   '/tab1',
   '/vidapro',
   '/web-pagos2',
