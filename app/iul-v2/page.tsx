@@ -3,6 +3,7 @@
 import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { inferUsZipFromStateAndPhone } from "@/lib/infer-us-zip";
 
 const trustBadges = [
   { icon: "/best-money-assets/tax-free.svg", text: "Retiro libre de impuestos" },
@@ -1203,6 +1204,30 @@ export default function Home() {
         } catch {
           // Keep the current answers if the geo refresh is unavailable.
         }
+      }
+
+      if (!isHomePage && !resolvedZipCode) {
+        const inferredLocation = inferUsZipFromStateAndPhone(
+          resolvedState,
+          normalizedPhone
+        );
+
+        resolvedZipCode = inferredLocation.zipCode;
+        resolvedState = resolvedState || inferredLocation.state || "";
+
+        if (
+          !resolvedLocationText ||
+          resolvedLocationText.trim().toLowerCase() === "rates available for your area"
+        ) {
+          resolvedLocationText = inferredLocation.location;
+        }
+
+        setAnswers((prev) => ({
+          ...prev,
+          zipCode: prev.zipCode || inferredLocation.zipCode,
+          locationText: prev.locationText || resolvedLocationText,
+          state: prev.state || resolvedState,
+        }));
       }
 
       const cleanedAnswers = Object.fromEntries(
