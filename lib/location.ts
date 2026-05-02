@@ -2,6 +2,7 @@ export type ResolvedLocation = {
   location: string;
   source: "zippopotam" | "vercel-ip" | "fallback";
   city: string | null;
+  country: string | null;
   state: string | null;
   zipCode: string | null;
   fallback: boolean;
@@ -91,6 +92,11 @@ export function expandUsState(value?: string | null) {
   return (normalized && US_STATE_NAMES[normalized]) || safeValue;
 }
 
+export function isUsState(value?: string | null) {
+  const expanded = expandUsState(value);
+  return !!expanded && Object.values(US_STATE_NAMES).includes(expanded);
+}
+
 export function buildVercelLocation(
   details: Partial<{
     city: string | null;
@@ -115,6 +121,7 @@ export function buildVercelLocation(
     location: formatLocation(city, state),
     source: "vercel-ip",
     city,
+    country,
     state,
     zipCode,
     fallback: true,

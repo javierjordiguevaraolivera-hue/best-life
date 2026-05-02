@@ -13,6 +13,7 @@ export async function GET(request: Request) {
     location: "Rates available for your area",
     source: "fallback",
     city: null,
+    country: null,
     state: null,
     zipCode: null,
     fallback: true,

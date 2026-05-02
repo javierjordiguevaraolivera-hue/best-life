@@ -2,11 +2,27 @@
 
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import { getDetectedZipCode } from "@/lib/quotify-us";
+import { inferUsZipFromStateAndPhone } from "@/lib/infer-us-zip";
+import { isUsState } from "@/lib/location";
 
 const ageOptions = ["25 a 34", "35 a 44", "45 a 54", "55 a 65", "65 +"];
 const goalOptions = ["Seguro de vida", "Ahorrar e invertir", "Planificación de retiro", "No estoy seguro aún"];
-const stateOptions = ["Alabama","Alaska","Arizona","Arkansas","California","Colorado","Connecticut","Delaware","Florida","Georgia","Hawaii","Idaho","Illinois","Indiana","Iowa","Kansas","Kentucky","Louisiana","Maine","Maryland","Massachusetts","Michigan","Minnesota","Mississippi","Missouri","Montana","Nebraska","Nevada","New Hampshire","New Jersey","New Mexico","New York","North Carolina","North Dakota","Ohio","Oklahoma","Oregon","Pennsylvania","Rhode Island","South Carolina","South Dakota","Tennessee","Texas","Utah","Vermont","Virginia","Washington","West Virginia","Wisconsin","Wyoming","District of Columbia"];
+const eligibilityOptions = ["Ciudadano americano", "Residente permanente (Green Card)", "Otro estatus"];
+const incomeOptions = [
+  "$100,000 o más",
+  "$80,000 – $99,999",
+  "$60,000 – $79,999",
+  "$40,000 – $59,999",
+  "Menos de $40,000",
+  "Desempleado/a",
+];
+const qualifiedIncomeOptions = new Set(["$60,000 – $79,999", "$80,000 – $99,999", "$100,000 o más"]);
+const eligibilityOptionLabels: Record<string, { title: string; subtitle?: string }> = {
+  "Residente permanente (Green Card)": {
+    title: "Residente permanente",
+    subtitle: "(Green Card)",
+  },
+};
 const logos = [
   "https://assets.prd.heyflow.com/flows/YXR7oey1nl7HBhqMQV2q/www/assets/2b2dd817-519b-4607-8464-4b22da3e26c6/original.png",
   "https://assets.prd.heyflow.com/flows/YXR7oey1nl7HBhqMQV2q/www/assets/31f97c95-e61e-4deb-bd40-fb60592dc32e/original.jpeg",
@@ -14,10 +30,12 @@ const logos = [
   "https://assets.prd.heyflow.com/flows/YXR7oey1nl7HBhqMQV2q/www/assets/4e4206b8-e4c4-4bb8-9930-19ac536d4d09/original.avif",
 ];
 
-type Step = "age" | "goal" | "location" | "name" | "phone" | "email" | "success" | "disqualified";
+type Step = "age" | "goal" | "eligibility" | "income" | "location" | "name" | "phone" | "email" | "success" | "disqualified";
 type Answers = {
   ageGroup: string;
   insuranceGoal: string;
+  residencyStatus: string;
+  annualIncome: string;
   state: string;
   detectedState: string;
   zipCode: string;
@@ -33,7 +51,7 @@ type Answers = {
   queryParams: Record<string, string>;
   queryParamsAll: Record<string, string[]>;
 };
-type LocationResponse = { location?: string; state?: string | null; zipCode?: string | null };
+type LocationResponse = { location?: string; country?: string | null; state?: string | null; zipCode?: string | null };
 type LeadSubmitResponse = {
   ok?: boolean;
   forwarded?: boolean;
@@ -42,6 +60,8 @@ type LeadSubmitResponse = {
 type SubmittedLead = {
   ageGroup: string;
   insuranceGoal: string;
+  residencyStatus: string;
+  annualIncome: string;
   firstName: string;
   lastName: string;
   fullName: string;
@@ -65,6 +85,8 @@ type SubmittedLead = {
 const emptyAnswers: Answers = {
   ageGroup: "",
   insuranceGoal: "",
+  residencyStatus: "",
+  annualIncome: "",
   state: "",
   detectedState: "",
   zipCode: "",
@@ -83,13 +105,15 @@ const emptyAnswers: Answers = {
 
 const progressMap: Partial<Record<Step, { filled: number; total: number; label: string }>> = {
   goal: { filled: 2, total: 6, label: "Progreso: 32%" },
+  eligibility: { filled: 2, total: 6, label: "Progreso: 32%" },
+  income: { filled: 2, total: 6, label: "Progreso: 32%" },
   location: { filled: 3, total: 6, label: "Progreso: 52%" },
   name: { filled: 4, total: 6, label: "Progreso: 67%" },
   phone: { filled: 5, total: 6, label: "Progreso: 88%" },
   email: { filled: 19, total: 20, label: "Progreso: 97%" },
 };
 
-const steps: Step[] = ["age", "goal", "location", "name", "phone", "email", "success", "disqualified"];
+const steps: Step[] = ["age", "goal", "eligibility", "income", "location", "name", "phone", "email", "success", "disqualified"];
 const storageKey = "quotify-us2-funnel-v1";
 const deviceStorageKey = "best-money-device-id";
 const formId = "quotify-us2-form";
@@ -259,34 +283,38 @@ async function resolveLocationSnapshot(currentAnswers: Answers) {
       if (locationResponse.ok) {
         const locationData = (await locationResponse.json()) as {
           location?: string;
+          country?: string | null;
           zipCode?: string | null;
           state?: string | null;
         };
 
         resolvedLocationText = resolvedLocationText || String(locationData.location || "");
-        resolvedState = resolvedState || String(locationData.state || "");
-        resolvedDetectedState = resolvedDetectedState || String(locationData.state || "");
-        resolvedZipCode = getDetectedZipCode({
-          explicitZip: resolvedZipCode,
-          geoZip: locationData.zipCode || null,
-          state: resolvedState || resolvedDetectedState,
-        });
+        if (locationData.country === "US") {
+          resolvedState = resolvedState || String(locationData.state || "");
+          resolvedDetectedState = resolvedDetectedState || String(locationData.state || "");
+          resolvedZipCode = resolvedZipCode || normalizeZip(String(locationData.zipCode || ""));
+        }
       }
-    } catch {
-      resolvedZipCode = getDetectedZipCode({
-        explicitZip: resolvedZipCode,
-        geoZip: null,
-        state: resolvedState || resolvedDetectedState,
-      });
-    }
+    } catch {}
   }
 
-  if (!resolvedZipCode) {
-    resolvedZipCode = getDetectedZipCode({
-      explicitZip: currentAnswers.zipCode,
-      geoZip: null,
-      state: resolvedState || resolvedDetectedState,
-    });
+  const stateForInference = resolvedState || resolvedDetectedState;
+
+  if (!resolvedZipCode && isUsState(stateForInference)) {
+    const inferredLocation = inferUsZipFromStateAndPhone(
+      stateForInference,
+      currentAnswers.phoneNumber,
+    );
+
+    resolvedZipCode = inferredLocation.zipCode;
+    resolvedState = resolvedState || inferredLocation.state || "";
+
+    if (
+      !resolvedLocationText ||
+      resolvedLocationText.trim().toLowerCase() === "rates available for your area"
+    ) {
+      resolvedLocationText = inferredLocation.location;
+    }
   }
 
   return {
@@ -342,10 +370,12 @@ function HandDialIcon() {
 
 function ChoiceButton({
   label,
+  subtitle,
   selected,
   onClick,
 }: {
   label: string;
+  subtitle?: string;
   selected: boolean;
   onClick: () => void;
 }) {
@@ -363,7 +393,14 @@ function ChoiceButton({
         <div className={`flex h-[30px] w-[30px] shrink-0 items-center justify-center ${selected ? "text-white" : "text-[#7a869a]"}`}>
           <HandDialIcon />
         </div>
-        <div className="text-[16px] font-bold tracking-[-0.02em]">{label}</div>
+        <div className={subtitle ? "text-center" : ""}>
+          <div className="font-['Poppins',sans-serif] text-[19.2px] font-[700] tracking-[-0.02em]">{label}</div>
+          {subtitle ? (
+            <div className={`mt-[2px] font-['Poppins',sans-serif] text-[14px] font-[500] leading-[1.15] ${selected ? "text-white/90" : "text-[#4b5563]"}`}>
+              {subtitle}
+            </div>
+          ) : null}
+        </div>
       </div>
     </button>
   );
@@ -410,7 +447,7 @@ function FooterLegal() {
 
 function DisqualifiedPage({ onRefer }: { onRefer: () => void }) {
   return (
-    <div className="min-h-[100dvh] bg-[#f3f6f8] px-0 py-[5px]">
+    <div className="min-h-[100dvh] bg-[#F3F4F6] px-0 py-[5px]">
       <div className="mx-auto w-full max-w-[482px] overflow-hidden rounded-[18px] bg-white shadow-[0_10px_28px_rgba(15,23,42,0.14)]">
         <section className="bg-[#ff474b] px-5 pb-[18px] pt-[23px] text-center text-white">
           <div className="text-[24px] leading-none">⚠️</div>
@@ -629,6 +666,8 @@ export default function QuotifyUs2PageClient() {
   const displayName = answers.firstName.trim() || "amigo";
   const selectedState = answers.state || answers.detectedState;
   const detectedCity = extractCity(answers.locationText || answers.userCityState);
+  const hasResolvedLocation = Boolean(normalizeZip(answers.zipCode) || isUsState(selectedState));
+  const nextStepAfterEligibility = locationStatus === "loading" || !hasResolvedLocation ? "location" : "name";
   useEffect(() => {
     try {
       const saved = window.localStorage.getItem(storageKey);
@@ -662,8 +701,18 @@ export default function QuotifyUs2PageClient() {
         if (!response.ok) throw new Error("location_failed");
         const data = (await response.json()) as LocationResponse;
         if (cancelled) return;
-        setAnswers((prev) => ({ ...prev, detectedState: prev.detectedState || data.state || "", state: prev.state || data.state || "", zipCode: prev.zipCode || (data.zipCode ?? ""), locationText: prev.locationText || data.location || "", userCityState: prev.userCityState || data.location || "" }));
-        setLocationStatus(data.location ? "ready" : "fallback");
+        const isUsLocation = data.country === "US";
+        const detectedZip = isUsLocation ? normalizeZip(data.zipCode || "") : "";
+        const detectedState = isUsLocation && isUsState(data.state) ? data.state || "" : "";
+        setAnswers((prev) => ({
+          ...prev,
+          detectedState: prev.detectedState || detectedState,
+          state: prev.state || detectedState,
+          zipCode: prev.zipCode || detectedZip,
+          locationText: prev.locationText || data.location || "",
+          userCityState: prev.userCityState || data.location || "",
+        }));
+        setLocationStatus(detectedZip || detectedState ? "ready" : "fallback");
       } catch {
         if (!cancelled) setLocationStatus("fallback");
       }
@@ -678,6 +727,12 @@ export default function QuotifyUs2PageClient() {
   }, [step]);
 
   useEffect(() => {
+    if (step !== "location" || locationStatus === "loading" || !hasResolvedLocation) return;
+    if (normalizeZip(answers.zipCode)) return;
+    setStep("name");
+  }, [answers.zipCode, hasResolvedLocation, locationStatus, step]);
+
+  useEffect(() => {
     if (zipLookupRef.current !== null) window.clearTimeout(zipLookupRef.current);
     if (answers.zipCode.length !== 5) return;
     zipLookupRef.current = window.setTimeout(async () => {
@@ -685,11 +740,45 @@ export default function QuotifyUs2PageClient() {
         const response = await fetch(`/api/zip/${answers.zipCode}`, { cache: "no-store" });
         if (!response.ok) return;
         const data = (await response.json()) as LocationResponse;
+        if (data.country !== "US" || !isUsState(data.state)) return;
         setAnswers((prev) => ({ ...prev, state: data.state || prev.state || prev.detectedState, locationText: data.location || prev.locationText, userCityState: data.location || prev.userCityState }));
       } catch {}
     }, 220);
     return () => { if (zipLookupRef.current !== null) window.clearTimeout(zipLookupRef.current); };
   }, [answers.zipCode]);
+
+  async function continueWithZipCode() {
+    const zipCode = normalizeZip(answers.zipCode);
+
+    if (zipCode.length !== 5) {
+      setZipError("Ingresa un ZIP code válido de EE.UU. con 5 dígitos.");
+      return;
+    }
+
+    setZipError("");
+
+    try {
+      const response = await fetch(`/api/zip/${zipCode}`, { cache: "no-store" });
+      if (!response.ok) throw new Error("Ingresa un ZIP code real de EE.UU.");
+      const data = (await response.json()) as LocationResponse;
+
+      if (data.country !== "US" || !isUsState(data.state) || data.zipCode !== zipCode) {
+        throw new Error("Ingresa un ZIP code real de EE.UU.");
+      }
+
+      setAnswers((prev) => ({
+        ...prev,
+        zipCode,
+        state: data.state || prev.state,
+        detectedState: prev.detectedState || data.state || "",
+        locationText: data.location || prev.locationText,
+        userCityState: data.location || prev.userCityState,
+      }));
+      setStep("name");
+    } catch (error) {
+      setZipError(error instanceof Error ? error.message : "No pudimos validar ese ZIP code. Intenta otro.");
+    }
+  }
 
   async function submit() {
     if (!validEmail(answers.email)) {
@@ -706,6 +795,8 @@ export default function QuotifyUs2PageClient() {
         Object.entries({
           ageGroup: answers.ageGroup,
           insuranceGoal: answers.insuranceGoal,
+          residencyStatus: answers.residencyStatus,
+          annualIncome: answers.annualIncome,
           state: resolvedState || resolvedDetectedState,
           firstName: answers.firstName.trim(),
           lastName: answers.lastName.trim(),
@@ -737,6 +828,8 @@ export default function QuotifyUs2PageClient() {
       const submittedLead: SubmittedLead = {
         ageGroup: answers.ageGroup,
         insuranceGoal: answers.insuranceGoal,
+        residencyStatus: answers.residencyStatus,
+        annualIncome: answers.annualIncome,
         firstName: answers.firstName.trim(),
         lastName: answers.lastName.trim(),
         fullName: `${answers.firstName.trim()} ${answers.lastName.trim()}`.trim(),
@@ -792,11 +885,14 @@ export default function QuotifyUs2PageClient() {
   const buttonClass = "inline-flex h-[56px] w-full items-center justify-center gap-2 rounded-[999px] bg-[#0b73ff] px-6 text-[18px] font-semibold text-white transition hover:bg-[#0968e6]";
 
   return (
-    <main className="min-h-[100dvh] bg-white px-0 py-0 text-[#111827]" style={{ fontFamily: '"Open Sans", Arial, sans-serif' }}>
+    <main className="quotify-us2-soft-bold min-h-[100dvh] bg-[#F3F4F6] px-0 py-0 text-[#111827]" style={{ fontFamily: '"Open Sans", Arial, sans-serif' }}>
       <style jsx global>{`
         @import url("https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700;800&family=Poppins:wght@500;600;700;800&display=swap");
         @keyframes pulseLite { 0%,100% { transform: scale(1); } 50% { transform: scale(1.04); } }
         @keyframes bounceBadge { 0%,100% { transform: translateX(-50%) translateY(0); } 50% { transform: translateX(-50%) translateY(-8px); } }
+        .quotify-us2-soft-bold .font-extrabold { font-weight: 700; }
+        .quotify-us2-soft-bold .font-bold { font-weight: 600; }
+        .quotify-us2-soft-bold .font-semibold { font-weight: 500; }
       `}</style>
 
       <div
@@ -815,20 +911,20 @@ export default function QuotifyUs2PageClient() {
             }}
           />
         ) : (
-          <section className="min-h-[100dvh] bg-white px-[3px] py-5">
+          <section className="min-h-[100dvh] bg-[#F3F4F6] px-[3px] py-5">
             {step === "age" && (
               <>
                 <div className="px-[10px]">
                   <div className="mt-[6px] text-center">
-                    <h1 className="mx-auto max-w-[390px] font-['Poppins',sans-serif] text-[28px] font-bold leading-[1.28] tracking-[-0.02em] text-black">
+                    <h1 className="relative left-1/2 w-[calc(100vw-24px)] max-w-[431px] -translate-x-1/2 font-['Poppins',sans-serif] text-[28.8px] font-[675] leading-[1.22] tracking-[-0.025em] text-black">
                       🛡️ ¡Tu Familia Merece Protección HOY!
                     </h1>
-                    <p className="mx-auto mt-[34px] max-w-[392px] font-['Poppins',sans-serif] text-[20px] font-bold leading-[1.2] tracking-[-0.02em] text-black">
+                    <p className="mx-auto mt-[34px] max-w-[392px] font-['Poppins',sans-serif] text-[20px] font-[650] leading-[1.2] tracking-[-0.02em] text-black">
                       ✅ Sin examen médico • ✅ Sin costos ocultos • ✅ Aprobación en 60 segundos
                     </p>
                   </div>
                   <div className="mt-[47px] text-center">
-                    <h2 className="font-['Poppins',sans-serif] text-[21px] font-extrabold leading-[1.18] tracking-[-0.035em] text-black">
+                    <h2 className="whitespace-nowrap font-['Poppins',sans-serif] text-[clamp(17px,5.1vw,21px)] font-extrabold leading-[1.18] tracking-[-0.035em] text-black">
                       Primero dime: ¿Cuántos años tienes?
                     </h2>
                   </div>
@@ -837,7 +933,7 @@ export default function QuotifyUs2PageClient() {
                       <ChoiceButton
                         key={option}
                         label={option}
-                        selected={answers.ageGroup === option}
+                        selected={answers.ageGroup === option || (!answers.ageGroup && option === ageOptions[0])}
                         onClick={() => {
                           setAnswers((prev) => ({ ...prev, ageGroup: option }));
                           window.setTimeout(() => setStep(option === "65 +" ? "disqualified" : "goal"), 120);
@@ -850,7 +946,7 @@ export default function QuotifyUs2PageClient() {
               </>
             )}
 
-            {step !== "age" && step !== "location" && step !== "name" && step !== "phone" && step !== "email" && progress && (
+            {step !== "age" && step !== "goal" && step !== "eligibility" && step !== "income" && step !== "location" && step !== "name" && step !== "phone" && step !== "email" && progress && (
               <>
                 <div className="mt-1"><Progress {...progress} /></div>
               </>
@@ -859,8 +955,8 @@ export default function QuotifyUs2PageClient() {
             {step === "goal" && (
               <>
                 <div className="mt-5 text-center">
-                  <h2 className="font-['Poppins',sans-serif] text-[2.08rem] font-semibold leading-[1.05] tracking-[-0.03em] text-[#111827]">¡Perfecto! Casi tienes tu cotización.</h2>
-                  <h3 className="mx-auto mt-6 max-w-[398px] font-['Poppins',sans-serif] text-[1.24rem] font-semibold leading-[1.25] tracking-[-0.015em] text-black">Personaliza tu cobertura ideal.</h3>
+                  <h2 className="font-['Poppins',sans-serif] text-[26px] font-[700] leading-[1.12] tracking-[-0.03em] text-[#111827]">¡Perfecto! Casi tienes tu cotización.</h2>
+                  <h3 className="mx-auto mt-6 max-w-[398px] font-['Poppins',sans-serif] text-[1.24rem] font-[700] leading-[1.25] tracking-[-0.015em] text-black">Personaliza tu cobertura ideal.</h3>
                 </div>
                 {progress && (
                   <div className="mt-9">
@@ -868,11 +964,80 @@ export default function QuotifyUs2PageClient() {
                   </div>
                 )}
                 <div className="mt-5 text-center">
-                  <h2 className="font-['Poppins',sans-serif] text-[2.18rem] font-bold leading-[1.03] tracking-[-0.048em] text-[#111827]">¿Cuál es tu principal objetivo financiero?</h2>
+                  <h2 className="font-['Poppins',sans-serif] text-[26px] font-[700] leading-[1.12] tracking-[-0.035em] text-[#111827]">¿Cuál es tu principal objetivo financiero?</h2>
                 </div>
                 <div className="mt-6 grid gap-3">
                   {goalOptions.map((option) => (
-                    <ChoiceButton key={option} label={option} selected={answers.insuranceGoal === option} onClick={() => { setAnswers((prev) => ({ ...prev, insuranceGoal: option })); window.setTimeout(() => setStep("location"), 120); }} />
+                    <ChoiceButton
+                      key={option}
+                      label={option}
+                      selected={answers.insuranceGoal === option || (!answers.insuranceGoal && option === goalOptions[0])}
+                      onClick={() => {
+                        setAnswers((prev) => ({ ...prev, insuranceGoal: option }));
+                        window.setTimeout(() => setStep("eligibility"), 120);
+                      }}
+                    />
+                  ))}
+                </div>
+              </>
+            )}
+
+            {step === "eligibility" && (
+              <>
+                <div className="mt-5 text-center">
+                  <h2 className="font-['Poppins',sans-serif] text-[26px] font-[700] leading-[1.12] tracking-[-0.03em] text-[#111827]">¡Perfecto! Casi tienes tu cotización.</h2>
+                  <h3 className="mx-auto mt-6 max-w-[398px] font-['Poppins',sans-serif] text-[1.24rem] font-[700] leading-[1.25] tracking-[-0.015em] text-black">Personaliza tu cobertura ideal.</h3>
+                </div>
+                {progress && (
+                  <div className="mt-9">
+                    <Progress {...progress} />
+                  </div>
+                )}
+                <div className="mt-5 text-center">
+                  <h2 className="font-['Poppins',sans-serif] text-[26px] font-[700] leading-[1.12] tracking-[-0.035em] text-[#111827]">Para verificar tu elegibilidad en el programa, selecciona una opción:</h2>
+                </div>
+                <div className="mt-6 grid gap-3">
+                  {eligibilityOptions.map((option) => (
+                    <ChoiceButton
+                      key={option}
+                      label={eligibilityOptionLabels[option]?.title || option}
+                      subtitle={eligibilityOptionLabels[option]?.subtitle}
+                      selected={answers.residencyStatus === option || (!answers.residencyStatus && option === eligibilityOptions[0])}
+                      onClick={() => {
+                        setAnswers((prev) => ({ ...prev, residencyStatus: option }));
+                        window.setTimeout(() => setStep(option === "Otro estatus" ? "disqualified" : "income"), 120);
+                      }}
+                    />
+                  ))}
+                </div>
+              </>
+            )}
+
+            {step === "income" && (
+              <>
+                <div className="mt-5 text-center">
+                  <h2 className="font-['Poppins',sans-serif] text-[26px] font-[700] leading-[1.12] tracking-[-0.03em] text-[#111827]">¡Perfecto! Casi tienes tu cotización.</h2>
+                  <h3 className="mx-auto mt-6 max-w-[398px] font-['Poppins',sans-serif] text-[1.24rem] font-[700] leading-[1.25] tracking-[-0.015em] text-black">Personaliza tu cobertura ideal.</h3>
+                </div>
+                {progress && (
+                  <div className="mt-9">
+                    <Progress {...progress} />
+                  </div>
+                )}
+                <div className="mt-5 text-center">
+                  <h2 className="font-['Poppins',sans-serif] text-[26px] font-[700] leading-[1.12] tracking-[-0.035em] text-[#111827]">¿Cuál es tu ingreso anual promedio?</h2>
+                </div>
+                <div className="mt-6 grid gap-3">
+                  {incomeOptions.map((option) => (
+                    <ChoiceButton
+                      key={option}
+                      label={option}
+                      selected={answers.annualIncome === option || (!answers.annualIncome && option === incomeOptions[0])}
+                      onClick={() => {
+                        setAnswers((prev) => ({ ...prev, annualIncome: option }));
+                        window.setTimeout(() => setStep(qualifiedIncomeOptions.has(option) ? nextStepAfterEligibility : "disqualified"), 120);
+                      }}
+                    />
                   ))}
                 </div>
               </>
@@ -892,15 +1057,15 @@ export default function QuotifyUs2PageClient() {
                   )}
                   <div className="mx-[2px] mt-5 border-t border-[#e5e7eb]" />
                   <div className="mt-5 text-center">
-                    <h2 className="font-['Poppins',sans-serif] text-[1.62rem] font-bold leading-[1.12] tracking-[-0.03em] text-[#111827]">Selecciona tu estado:</h2>
+                    <h2 className="font-['Poppins',sans-serif] text-[1.62rem] font-bold leading-[1.12] tracking-[-0.03em] text-[#111827]">¿Cuál es tu ZIP code?</h2>
                   </div>
-                  <div className={`mt-4 rounded-[14px] border-[2px] px-4 py-[18px] text-center ${locationStatus === "loading" ? "border-[#2196f3] bg-[#e3f2fd]" : answers.locationText ? "border-[#2991f4] bg-[#d8ebff]" : "border-[#f5d68f] bg-[#fff7e1]"}`}>
+                  <div className={`mt-4 rounded-[14px] border-[2px] px-4 py-[18px] text-center ${locationStatus === "loading" ? "border-[#2196f3] bg-[#e3f2fd]" : hasResolvedLocation ? "border-[#2991f4] bg-[#d8ebff]" : "border-[#f5d68f] bg-[#fff7e1]"}`}>
                     {locationStatus === "loading" ? (
                       <>
                         <div className="text-[16px] text-[#1976d2]">🔍 Detectando tu ubicación...</div>
                         <div className="mt-2 text-[12px] text-[#666]">Esto toma solo unos segundos</div>
                       </>
-                    ) : answers.locationText ? (
+                    ) : hasResolvedLocation ? (
                       <>
                         <div className="flex items-center justify-center gap-[10px] text-[#2168bf]">
                           <span className="text-[22px] leading-none">🏠</span>
@@ -912,21 +1077,30 @@ export default function QuotifyUs2PageClient() {
                       </>
                     ) : (
                       <>
-                        <div className="text-[15px] font-semibold text-[#9b6b00]">No pudimos detectar tu estado</div>
-                        <div className="mt-2 text-[13px] text-[#765628]">Selecciona tu estado manualmente para continuar.</div>
+                        <div className="text-[15px] font-semibold text-[#9b6b00]">No pudimos detectar tu ZIP code</div>
+                        <div className="mt-2 text-[13px] text-[#765628]">Ingresa tu ZIP code para continuar.</div>
                       </>
                     )}
                   </div>
                   <div className="mt-8">
-                    <select value={selectedState} onChange={(e) => setAnswers((prev) => ({ ...prev, state: e.target.value }))} className="h-[46px] w-full rounded-[8px] border border-[#e6eaf0] bg-white px-[14px] text-[15px] text-[#111827] outline-none transition focus:border-[#1967d2]">
-                      <option value="">Cambiar estado...</option>
-                      {stateOptions.map((stateOption) => <option key={stateOption} value={stateOption}>{stateOption}</option>)}
-                    </select>
+                    <input
+                      id="zip-code"
+                      name="postal-code"
+                      value={answers.zipCode}
+                      onChange={(e) => {
+                        setAnswers((prev) => ({ ...prev, zipCode: normalizeZip(e.target.value), state: prev.detectedState || "" }));
+                        setZipError("");
+                      }}
+                      placeholder="Ej: 33101"
+                      inputMode="numeric"
+                      autoComplete="postal-code"
+                      className="h-[58px] w-full rounded-[8px] border border-[#e6eaf0] bg-white px-[16px] text-center font-['Poppins',sans-serif] text-[20px] font-[600] text-[#111827] outline-none transition placeholder:text-[#9ca3af] focus:border-[#1967d2]"
+                    />
                   </div>
                   <p className="mt-3 min-h-[20px] text-center text-[13px] text-[#d92d20]">{zipError}</p>
-                  <button type="button" onClick={() => { if (!selectedState) return setZipError("Selecciona tu estado para continuar."); setZipError(""); setAnswers((prev) => ({ ...prev, state: prev.state || prev.detectedState, userCityState: prev.locationText || prev.userCityState })); setStep("name"); }} className="mt-[2px] inline-flex h-[56px] w-full items-center justify-center gap-[10px] rounded-[8px] bg-[#3a9be7] px-6 text-[17px] font-bold text-white transition hover:bg-[#3493dd]">
+                  <button type="button" onClick={() => void continueWithZipCode()} className="mt-[2px] inline-flex h-[56px] w-full items-center justify-center gap-[10px] rounded-[8px] bg-[#3a9be7] px-6 text-[17px] font-bold text-white transition hover:bg-[#3493dd]">
                     <span>✅</span>
-                    <span className="font-extrabold tracking-[-0.02em]">Confirmar ubicación</span>
+                    <span className="font-extrabold tracking-[-0.02em]">Confirmar ZIP code</span>
                     <svg viewBox="0 0 256 256" className="h-[17px] w-[17px]" fill="none">
                       <line x1="40" y1="128" x2="216" y2="128" stroke="currentColor" strokeWidth="24" strokeLinecap="round" strokeLinejoin="round" />
                       <polyline points="144 56 216 128 144 200" stroke="currentColor" strokeWidth="24" strokeLinecap="round" strokeLinejoin="round" />
