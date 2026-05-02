@@ -4,7 +4,7 @@ import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { getDetectedZipCode } from "@/lib/quotify-us";
 
-const ageOptions = ["25 a 34", "35 a 44", "45 a 50", "50 a 55", "+65"];
+const ageOptions = ["25 a 34", "35 a 44", "45 a 54", "55 a 65", "65 +"];
 const goalOptions = ["Seguro de vida", "Ahorrar e invertir", "Planificación de retiro", "No estoy seguro aún"];
 const stateOptions = ["Alabama","Alaska","Arizona","Arkansas","California","Colorado","Connecticut","Delaware","Florida","Georgia","Hawaii","Idaho","Illinois","Indiana","Iowa","Kansas","Kentucky","Louisiana","Maine","Maryland","Massachusetts","Michigan","Minnesota","Mississippi","Missouri","Montana","Nebraska","Nevada","New Hampshire","New Jersey","New Mexico","New York","North Carolina","North Dakota","Ohio","Oklahoma","Oregon","Pennsylvania","Rhode Island","South Carolina","South Dakota","Tennessee","Texas","Utah","Vermont","Virginia","Washington","West Virginia","Wisconsin","Wyoming","District of Columbia"];
 const logos = [
@@ -818,24 +818,21 @@ export default function QuotifyUs2PageClient() {
           <section className="min-h-[100dvh] bg-white px-[3px] py-5">
             {step === "age" && (
               <>
-                <div className="rounded-[16px] border-b-[3px] border-[#7ecf9a] bg-[#edf9f1] px-4 py-4 text-center">
-                  <div className="mx-auto max-w-[370px] font-['Poppins',sans-serif] text-[1.6rem] font-bold leading-[1.05] tracking-[-0.038em] text-[#111]">
-                    ⚠️ ATENCIÓN: Nuevo Programa de Seguro de Vida – Disponible{detectedCity ? ` en ${detectedCity}!` : "!"}
-                  </div>
-                </div>
                 <div className="px-[10px]">
-                  <div className="mt-8 text-center">
-                    <h3 className="mx-auto max-w-[404px] font-['Poppins',sans-serif] text-[1.22rem] font-bold leading-[1.18] tracking-[-0.024em] text-[#111827]">
-                      Descubre en menos de 60 segundos si calificas para este beneficio exclusivo
-                    </h3>
+                  <div className="mt-[6px] text-center">
+                    <h1 className="mx-auto max-w-[390px] font-['Poppins',sans-serif] text-[28px] font-extrabold leading-[1.28] tracking-[-0.02em] text-black">
+                      🛡️ ¡Tu Familia Merece Protección HOY!
+                    </h1>
+                    <p className="mx-auto mt-[34px] max-w-[392px] font-['Poppins',sans-serif] text-[22px] font-extrabold leading-[1.2] tracking-[-0.035em] text-black">
+                      ✅ Sin examen médico • ✅ Sin costos ocultos • ✅ Aprobación en 60 segundos
+                    </p>
                   </div>
-                  <div className="mt-8 border-t border-[#e5e7eb]" />
-                  <div className="mt-5 text-center">
-                    <h2 className="font-['Poppins',sans-serif] text-[1.42rem] font-bold leading-[1.08] tracking-[-0.034em] text-[#111827]">
-                      ¿En qué grupo de edad estás?
+                  <div className="mt-[47px] text-center">
+                    <h2 className="font-['Poppins',sans-serif] text-[21px] font-extrabold leading-[1.18] tracking-[-0.035em] text-black">
+                      Primero dime: ¿Cuántos años tienes?
                     </h2>
                   </div>
-                  <div className="mt-4 grid gap-3">
+                  <div className="mt-[31px] grid gap-[12px]">
                     {ageOptions.map((option) => (
                       <ChoiceButton
                         key={option}
@@ -843,16 +840,12 @@ export default function QuotifyUs2PageClient() {
                         selected={answers.ageGroup === option}
                         onClick={() => {
                           setAnswers((prev) => ({ ...prev, ageGroup: option }));
-                          window.setTimeout(() => setStep(option === "+65" ? "disqualified" : "goal"), 120);
+                          window.setTimeout(() => setStep(option === "65 +" ? "disqualified" : "goal"), 120);
                         }}
                       />
                     ))}
                   </div>
-                  <div className="mt-5 rounded-[12px] border border-[#fde68a] bg-[#fff9db] px-4 py-3 text-center">
-                    <p className="text-[14px] font-semibold leading-[1.4] text-[#7c5a00]">
-                      ⚠️ Este programa es exclusivo para personas entre 25 años y 55 años de edad.
-                    </p>
-                  </div>
+                  <div className="mt-[12px] border-t border-[#e5e7eb]" />
                 </div>
               </>
             )}
