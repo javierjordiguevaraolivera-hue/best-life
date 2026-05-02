@@ -129,7 +129,7 @@ export async function POST(request: Request) {
   const webhookUrl =
     body.page === "/iul-v2"
       ? process.env.webhook_url_qt_v2
-      : body.page === "/quotify-us"
+      : body.page === "/quotify-us" || body.page === "/quotify-us2"
         ? process.env.webhook3_yt?.trim() || process.env.webhook_url_qt_v2
         : process.env.principal_webhook_url;
   const backupWebhookUrl = process.env.WBK_TEST_URL2?.trim() || process.env.TEST_WEBHOOK_URL_ONLY?.trim();
