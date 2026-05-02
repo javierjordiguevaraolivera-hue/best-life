@@ -820,10 +820,10 @@ export default function QuotifyUs2PageClient() {
               <>
                 <div className="px-[10px]">
                   <div className="mt-[6px] text-center">
-                    <h1 className="mx-auto max-w-[390px] font-['Poppins',sans-serif] text-[28px] font-extrabold leading-[1.28] tracking-[-0.02em] text-black">
+                    <h1 className="mx-auto max-w-[390px] font-['Poppins',sans-serif] text-[28px] font-bold leading-[1.28] tracking-[-0.02em] text-black">
                       🛡️ ¡Tu Familia Merece Protección HOY!
                     </h1>
-                    <p className="mx-auto mt-[34px] max-w-[392px] font-['Poppins',sans-serif] text-[22px] font-extrabold leading-[1.2] tracking-[-0.035em] text-black">
+                    <p className="mx-auto mt-[34px] max-w-[392px] font-['Poppins',sans-serif] text-[20px] font-bold leading-[1.2] tracking-[-0.02em] text-black">
                       ✅ Sin examen médico • ✅ Sin costos ocultos • ✅ Aprobación en 60 segundos
                     </p>
                   </div>
@@ -859,12 +859,16 @@ export default function QuotifyUs2PageClient() {
             {step === "goal" && (
               <>
                 <div className="mt-5 text-center">
-                  <h2 className="font-['Poppins',sans-serif] text-[2.08rem] font-bold leading-[1.05] tracking-[-0.045em] text-[#111827]">Tu familia merece estar protegida.</h2>
-                  <h3 className="mx-auto mt-2 max-w-[398px] text-[1.24rem] leading-[1.25] tracking-[-0.02em] text-[#4b5568]">Elige un plan de seguro de vida según tus metas.</h3>
+                  <h2 className="font-['Poppins',sans-serif] text-[2.08rem] font-semibold leading-[1.05] tracking-[-0.03em] text-[#111827]">¡Perfecto! Casi tienes tu cotización.</h2>
+                  <h3 className="mx-auto mt-6 max-w-[398px] font-['Poppins',sans-serif] text-[1.24rem] font-semibold leading-[1.25] tracking-[-0.015em] text-black">Personaliza tu cobertura ideal.</h3>
                 </div>
-                <div className="mt-5 border-t border-[#e5e7eb]" />
+                {progress && (
+                  <div className="mt-9">
+                    <Progress {...progress} />
+                  </div>
+                )}
                 <div className="mt-5 text-center">
-                  <h2 className="font-['Poppins',sans-serif] text-[2.18rem] font-bold leading-[1.03] tracking-[-0.048em] text-[#111827]">Cuéntame, ¿qué te gustaría lograr con un seguro de vida?</h2>
+                  <h2 className="font-['Poppins',sans-serif] text-[2.18rem] font-bold leading-[1.03] tracking-[-0.048em] text-[#111827]">¿Cuál es tu principal objetivo financiero?</h2>
                 </div>
                 <div className="mt-6 grid gap-3">
                   {goalOptions.map((option) => (
