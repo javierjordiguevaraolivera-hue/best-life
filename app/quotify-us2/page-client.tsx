@@ -495,7 +495,7 @@ const disqualificationContent: Record<DisqualificationReason, {
     ),
     reasons: [
       ["🪪", "bg-[#eef2ff]", "Estatus aceptado", "Ciudadano americano o residente permanente."],
-      ["✅", "bg-[#eafbf0]", "Documentación requerida", "El programa necesita un estatus migratorio elegible."],
+      ["✅", "bg-[#eafbf0]", "Documentación requerida", "El programa necesita un estatus de residencia elegible."],
       ["👨‍👩‍👧", "bg-[#f0edff]", "¿Conoces a alguien elegible?", "Puedes referir a un ciudadano o residente permanente."],
     ],
   },

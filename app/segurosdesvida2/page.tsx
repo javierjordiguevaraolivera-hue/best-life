@@ -190,9 +190,9 @@ const thankYouFaqs = [
       "No. Tenemos planes desde $100 hasta $5,000+ mensuales, adaptados a tu presupuesto.",
   },
   {
-    title: "iAplica para inmigrantes o residentes?",
+    title: "iAplica para residentes?",
     description:
-      "Si. Muchos planes estan disponibles independientemente del estatus migratorio. Tu asesor te explicara las opciones.",
+      "Si. Muchos planes estan disponibles segun requisitos de residencia. Tu asesor te explicara las opciones.",
   },
 ];
 

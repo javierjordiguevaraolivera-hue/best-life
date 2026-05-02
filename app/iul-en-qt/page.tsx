@@ -218,7 +218,7 @@ const thankYouFaqs = [
       "No. Plans range from $100 to $5,000+ per month to fit your budget.",
   },
   {
-    title: "Does it work for immigrants or residents?",
+    title: "Does it work for residents?",
     description:
       "Yes. Many plans are available regardless of status. Your advisor can explain your options.",
   },
