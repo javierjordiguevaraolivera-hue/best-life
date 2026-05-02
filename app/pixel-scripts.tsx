@@ -45,12 +45,13 @@ function getMetaPixelId(pathname: string) {
 
 export default function PixelScripts() {
   const pathname = usePathname() || '/'
+  const normalizedPathname = pathname.replace(/\/+$/, '') || '/'
 
-  if (DISABLED_PIXEL_PATHS.has(pathname)) {
+  if (DISABLED_PIXEL_PATHS.has(normalizedPathname)) {
     return null
   }
 
-  const metaPixelId = getMetaPixelId(pathname)
+  const metaPixelId = getMetaPixelId(normalizedPathname)
 
   return (
     <>

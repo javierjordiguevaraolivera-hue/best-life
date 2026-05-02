@@ -31,6 +31,7 @@ const logos = [
 ];
 
 type Step = "age" | "goal" | "eligibility" | "income" | "location" | "name" | "phone" | "email" | "success" | "disqualified";
+type DisqualificationReason = "age" | "status" | "income";
 type Answers = {
   ageGroup: string;
   insuranceGoal: string;
@@ -114,6 +115,7 @@ const progressMap: Partial<Record<Step, { filled: number; total: number; label: 
 };
 
 const steps: Step[] = ["age", "goal", "eligibility", "income", "location", "name", "phone", "email", "success", "disqualified"];
+const disqualificationReasons: DisqualificationReason[] = ["age", "status", "income"];
 const storageKey = "quotify-us2-funnel-v1";
 const deviceStorageKey = "best-money-device-id";
 const formId = "quotify-us2-form";
@@ -196,6 +198,14 @@ function getOrCreateDeviceId() {
   return id;
 }
 
+function createLeadId() {
+  if (typeof window !== "undefined" && window.crypto?.randomUUID) {
+    return `quotify-us2_${window.crypto.randomUUID()}`;
+  }
+
+  return `quotify-us2_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`;
+}
+
 function normalizeHashValue(value: string, mode: "text" | "email" | "phone" | "zip" = "text") {
   if (mode === "email") return value.trim().toLowerCase();
   if (mode === "phone") return normalizePhone(value);
@@ -268,6 +278,19 @@ function pushToDataLayer(eventPayload: Record<string, unknown>) {
   const dataLayerWindow = window as Window & { dataLayer?: Record<string, unknown>[] };
   dataLayerWindow.dataLayer = dataLayerWindow.dataLayer || [];
   dataLayerWindow.dataLayer.push(eventPayload);
+}
+
+function trackMetaPixel(eventName: "ViewContent" | "Lead", payload?: Record<string, unknown>, eventId?: string) {
+  if (typeof window === "undefined") return;
+  const trackingWindow = window as Window & {
+    fbq?: (
+      action: "track",
+      eventName: string,
+      payload?: Record<string, unknown>,
+      options?: { eventID?: string },
+    ) => void;
+  };
+  trackingWindow.fbq?.("track", eventName, payload, eventId ? { eventID: eventId } : undefined);
 }
 
 async function resolveLocationSnapshot(currentAnswers: Answers) {
@@ -445,7 +468,55 @@ function FooterLegal() {
   );
 }
 
-function DisqualifiedPage({ onRefer }: { onRefer: () => void }) {
+const disqualificationContent: Record<DisqualificationReason, {
+  alert: string;
+  description: React.ReactNode;
+  reasons: Array<[string, string, string, string]>;
+}> = {
+  age: {
+    alert: "Este programa es solo para personas de 18 a 50 años.",
+    description: (
+      <>
+        El programa de <strong className="font-extrabold text-black">seguro de vida tipo IUL</strong> que ofrecemos está diseñado exclusivamente para personas de <strong className="font-extrabold text-black">18 a 50 años</strong>.
+      </>
+    ),
+    reasons: [
+      ["🗓️", "bg-[#ffecef]", "Rango de edad aceptado", "Solo aplica para personas de 18 a 50 años."],
+      ["🛡️", "bg-[#eafbf0]", "Seguro de vida — etapa activa", "Diseñado para personas dentro del rango de edad permitido."],
+      ["👨‍👩‍👧", "bg-[#f0edff]", "¿Tienes un familiar de 18 a 50?", "Puedes referirlo y ayudarlo a obtener cobertura."],
+    ],
+  },
+  status: {
+    alert: "Este programa requiere ciudadanía americana o residencia permanente.",
+    description: (
+      <>
+        Para aplicar a esta cobertura, actualmente aceptamos personas con <strong className="font-extrabold text-black">ciudadanía americana</strong> o <strong className="font-extrabold text-black">residencia permanente (Green Card)</strong>.
+      </>
+    ),
+    reasons: [
+      ["🪪", "bg-[#eef2ff]", "Estatus aceptado", "Ciudadano americano o residente permanente."],
+      ["✅", "bg-[#eafbf0]", "Documentación requerida", "El programa necesita un estatus migratorio elegible."],
+      ["👨‍👩‍👧", "bg-[#f0edff]", "¿Conoces a alguien elegible?", "Puedes referir a un ciudadano o residente permanente."],
+    ],
+  },
+  income: {
+    alert: "Este programa es para personas con ingresos de $60,000 o más al año.",
+    description: (
+      <>
+        Para calificar, el programa requiere un ingreso anual promedio de <strong className="font-extrabold text-black">$60,000 o más</strong>.
+      </>
+    ),
+    reasons: [
+      ["💵", "bg-[#eafbf0]", "Ingreso mínimo requerido", "Aceptamos ingresos anuales desde $60,000."],
+      ["📈", "bg-[#eef2ff]", "Capacidad de cobertura", "La estrategia está diseñada para aportes consistentes."],
+      ["👨‍👩‍👧", "bg-[#f0edff]", "¿Conoces a alguien que califique?", "Puedes referir a alguien con ingresos de $60,000 o más."],
+    ],
+  },
+};
+
+function DisqualifiedPage({ reason, onRefer }: { reason: DisqualificationReason; onRefer: () => void }) {
+  const content = disqualificationContent[reason];
+
   return (
     <div className="min-h-[100dvh] bg-[#F3F4F6] px-0 py-[5px]">
       <div className="mx-auto w-full max-w-[482px] overflow-hidden rounded-[18px] bg-white shadow-[0_10px_28px_rgba(15,23,42,0.14)]">
@@ -460,7 +531,7 @@ function DisqualifiedPage({ onRefer }: { onRefer: () => void }) {
           <div className="flex items-center gap-[10px] rounded-[10px] border border-[#ffb3b3] bg-[#fff0f0] px-[16px] py-[14px] text-left">
             <span className="h-[10px] w-[10px] shrink-0 rounded-full bg-[#ff474b]" />
             <p className="text-[14px] font-extrabold leading-[1.35] text-[#e60000]">
-              Este programa es solo para personas menores de 50 años.
+              {content.alert}
             </p>
           </div>
 
@@ -468,7 +539,7 @@ function DisqualifiedPage({ onRefer }: { onRefer: () => void }) {
             ¡Gracias por tu interés!
           </h2>
           <p className="mx-auto mt-[8px] max-w-[405px] text-[15px] leading-[1.55] text-[#374151]">
-            El programa de <strong className="font-extrabold text-black">seguro de vida tipo IUL</strong> que ofrecemos está diseñado exclusivamente para personas de <strong className="font-extrabold text-black">18 a 50 años</strong>.
+            {content.description}
           </p>
 
           <div className="mt-[21px] border-t border-[#e5e7eb]" />
@@ -478,11 +549,7 @@ function DisqualifiedPage({ onRefer }: { onRefer: () => void }) {
           </h3>
 
           <div className="mt-[13px] grid gap-[10px]">
-            {[
-              ["🗓️", "bg-[#ffecef]", "Rango de edad del programa", "Solo aplica para personas de 18 a 50 años."],
-              ["🛡️", "bg-[#eafbf0]", "Seguro de vida — etapa activa", "Diseñado para personas menores de 50 años de edad."],
-              ["👨‍👩‍👧", "bg-[#f0edff]", "¿Tienes un familiar menor de 50?", "Puedes referirlos y ayudarlos a obtener cobertura."],
-            ].map(([icon, iconBg, title, text]) => (
+            {content.reasons.map(([icon, iconBg, title, text]) => (
               <div key={title} className="flex items-center gap-[16px] rounded-[12px] border border-[#dfe3e8] bg-[#f6f7f9] px-[16px] py-[16px] text-left shadow-[0_1px_0_rgba(15,23,42,0.02)]">
                 <div className={`flex h-[43px] w-[43px] shrink-0 items-center justify-center rounded-[11px] ${iconBg} text-[20px]`}>
                   {icon}
@@ -660,7 +727,11 @@ export default function QuotifyUs2PageClient() {
   const [emailError, setEmailError] = useState("");
   const [submitError, setSubmitError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [disqualificationReason, setDisqualificationReason] = useState<DisqualificationReason>("age");
   const zipLookupRef = useRef<number | null>(null);
+  const trackedViewContentStepsRef = useRef<Set<Step>>(new Set());
+  const hasTrackedLeadRef = useRef(false);
+  const leadEventIdRef = useRef<string | null>(null);
   const page = pathname || "/quotify-us2";
   const progress = progressMap[step];
   const displayName = answers.firstName.trim() || "amigo";
@@ -672,17 +743,24 @@ export default function QuotifyUs2PageClient() {
     try {
       const saved = window.localStorage.getItem(storageKey);
       if (!saved) return;
-      const parsed = JSON.parse(saved) as { answers?: Partial<Answers>; step?: Step };
+      const parsed = JSON.parse(saved) as {
+        answers?: Partial<Answers>;
+        step?: Step;
+        disqualificationReason?: DisqualificationReason;
+      };
       if (parsed.answers) setAnswers((prev) => ({ ...prev, ...parsed.answers }));
+      if (parsed.disqualificationReason && disqualificationReasons.includes(parsed.disqualificationReason)) {
+        setDisqualificationReason(parsed.disqualificationReason);
+      }
       if (parsed.step && parsed.step !== "success" && steps.includes(parsed.step)) setStep(parsed.step);
     } catch {}
   }, []);
 
   useEffect(() => {
     try {
-      window.localStorage.setItem(storageKey, JSON.stringify({ step, answers }));
+      window.localStorage.setItem(storageKey, JSON.stringify({ step, answers, disqualificationReason }));
     } catch {}
-  }, [answers, step]);
+  }, [answers, disqualificationReason, step]);
 
   useEffect(() => {
     const search = new URLSearchParams(window.location.search);
@@ -724,6 +802,27 @@ export default function QuotifyUs2PageClient() {
   useEffect(() => {
     if (step === "success") return;
     window.scrollTo({ top: 0, behavior: "smooth" });
+  }, [step]);
+
+  useEffect(() => {
+    if (step === "age" || step === "success" || step === "disqualified") return;
+    if (trackedViewContentStepsRef.current.has(step)) return;
+    trackedViewContentStepsRef.current.add(step);
+    trackMetaPixel("ViewContent", {
+      content_name: `quotify-us2-${step}`,
+      funnel: "quotify-us2",
+      step,
+    });
+  }, [step]);
+
+  useEffect(() => {
+    if (step !== "success" || hasTrackedLeadRef.current) return;
+    hasTrackedLeadRef.current = true;
+    trackMetaPixel("Lead", {
+      content_name: "quotify-us2-thank-you",
+      funnel: "quotify-us2",
+      lead_id: leadEventIdRef.current,
+    }, leadEventIdRef.current || undefined);
   }, [step]);
 
   useEffect(() => {
@@ -789,6 +888,9 @@ export default function QuotifyUs2PageClient() {
     setSubmitError("");
     setIsSubmitting(true);
     try {
+      const leadId = createLeadId();
+      leadEventIdRef.current = leadId;
+      const deviceId = getOrCreateDeviceId();
       const { resolvedZipCode, resolvedLocationText, resolvedState, resolvedDetectedState } = await resolveLocationSnapshot(answers);
       const normalizedPhone = normalizePhone(answers.phoneNumber);
       const cleanedAnswers = Object.fromEntries(
@@ -815,7 +917,7 @@ export default function QuotifyUs2PageClient() {
           page,
           answers: cleanedAnswers,
           meta: {
-            deviceId: getOrCreateDeviceId(),
+            deviceId,
           },
         }),
       });
@@ -866,7 +968,7 @@ export default function QuotifyUs2PageClient() {
             queryParamsAll: answers.queryParamsAll,
           },
           meta: {
-            deviceId: getOrCreateDeviceId(),
+            deviceId,
             funnel: "quotify-us2",
             preparedForWebhook: true,
           },
@@ -905,9 +1007,22 @@ export default function QuotifyUs2PageClient() {
           <SuccessPage />
         ) : step === "disqualified" ? (
           <DisqualifiedPage
+            reason={disqualificationReason}
             onRefer={() => {
-              setAnswers((prev) => ({ ...prev, ageGroup: "" }));
-              setStep("age");
+              if (disqualificationReason === "age") {
+                setAnswers((prev) => ({ ...prev, ageGroup: "" }));
+                setStep("age");
+                return;
+              }
+
+              if (disqualificationReason === "status") {
+                setAnswers((prev) => ({ ...prev, residencyStatus: "" }));
+                setStep("eligibility");
+                return;
+              }
+
+              setAnswers((prev) => ({ ...prev, annualIncome: "" }));
+              setStep("income");
             }}
           />
         ) : (
@@ -936,6 +1051,7 @@ export default function QuotifyUs2PageClient() {
                         selected={answers.ageGroup === option || (!answers.ageGroup && option === ageOptions[0])}
                         onClick={() => {
                           setAnswers((prev) => ({ ...prev, ageGroup: option }));
+                          if (option === "65 +") setDisqualificationReason("age");
                           window.setTimeout(() => setStep(option === "65 +" ? "disqualified" : "goal"), 120);
                         }}
                       />
@@ -1005,6 +1121,7 @@ export default function QuotifyUs2PageClient() {
                       selected={answers.residencyStatus === option || (!answers.residencyStatus && option === eligibilityOptions[0])}
                       onClick={() => {
                         setAnswers((prev) => ({ ...prev, residencyStatus: option }));
+                        if (option === "Otro estatus") setDisqualificationReason("status");
                         window.setTimeout(() => setStep(option === "Otro estatus" ? "disqualified" : "income"), 120);
                       }}
                     />
@@ -1035,7 +1152,15 @@ export default function QuotifyUs2PageClient() {
                       selected={answers.annualIncome === option || (!answers.annualIncome && option === incomeOptions[0])}
                       onClick={() => {
                         setAnswers((prev) => ({ ...prev, annualIncome: option }));
-                        window.setTimeout(() => setStep(qualifiedIncomeOptions.has(option) ? nextStepAfterEligibility : "disqualified"), 120);
+                        if (!qualifiedIncomeOptions.has(option)) setDisqualificationReason("income");
+                        window.setTimeout(() => {
+                          if (!qualifiedIncomeOptions.has(option)) {
+                            setStep("disqualified");
+                            return;
+                          }
+
+                          setStep(nextStepAfterEligibility);
+                        }, 120);
                       }}
                     />
                   ))}
@@ -1059,29 +1184,26 @@ export default function QuotifyUs2PageClient() {
                   <div className="mt-5 text-center">
                     <h2 className="font-['Poppins',sans-serif] text-[1.62rem] font-bold leading-[1.12] tracking-[-0.03em] text-[#111827]">¿Cuál es tu ZIP code?</h2>
                   </div>
-                  <div className={`mt-4 rounded-[14px] border-[2px] px-4 py-[18px] text-center ${locationStatus === "loading" ? "border-[#2196f3] bg-[#e3f2fd]" : hasResolvedLocation ? "border-[#2991f4] bg-[#d8ebff]" : "border-[#f5d68f] bg-[#fff7e1]"}`}>
-                    {locationStatus === "loading" ? (
-                      <>
-                        <div className="text-[16px] text-[#1976d2]">🔍 Detectando tu ubicación...</div>
-                        <div className="mt-2 text-[12px] text-[#666]">Esto toma solo unos segundos</div>
-                      </>
-                    ) : hasResolvedLocation ? (
-                      <>
-                        <div className="flex items-center justify-center gap-[10px] text-[#2168bf]">
-                          <span className="text-[22px] leading-none">🏠</span>
-                          <span className="font-['Poppins',sans-serif] text-[1.18rem] font-semibold tracking-[-0.02em]">{formatDetectedRegion(answers.locationText, selectedState || answers.detectedState, detectedCity)}</span>
-                        </div>
-                        <div className="mt-[7px]">
-                          <span className="inline-flex rounded-full bg-[#41b349] px-[9px] py-[3px] text-[9.5px] font-bold leading-none text-white">Detectado</span>
-                        </div>
-                      </>
-                    ) : (
-                      <>
-                        <div className="text-[15px] font-semibold text-[#9b6b00]">No pudimos detectar tu ZIP code</div>
-                        <div className="mt-2 text-[13px] text-[#765628]">Ingresa tu ZIP code para continuar.</div>
-                      </>
-                    )}
-                  </div>
+                  {locationStatus === "loading" || hasResolvedLocation ? (
+                    <div className={`mt-4 rounded-[14px] border-[2px] px-4 py-[18px] text-center ${locationStatus === "loading" ? "border-[#2196f3] bg-[#e3f2fd]" : "border-[#2991f4] bg-[#d8ebff]"}`}>
+                      {locationStatus === "loading" ? (
+                        <>
+                          <div className="text-[16px] text-[#1976d2]">🔍 Detectando tu ubicación...</div>
+                          <div className="mt-2 text-[12px] text-[#666]">Esto toma solo unos segundos</div>
+                        </>
+                      ) : (
+                        <>
+                          <div className="flex items-center justify-center gap-[10px] text-[#2168bf]">
+                            <span className="text-[22px] leading-none">🏠</span>
+                            <span className="font-['Poppins',sans-serif] text-[1.18rem] font-semibold tracking-[-0.02em]">{formatDetectedRegion(answers.locationText, selectedState || answers.detectedState, detectedCity)}</span>
+                          </div>
+                          <div className="mt-[7px]">
+                            <span className="inline-flex rounded-full bg-[#41b349] px-[9px] py-[3px] text-[9.5px] font-bold leading-none text-white">Detectado</span>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  ) : null}
                   <div className="mt-8">
                     <input
                       id="zip-code"
