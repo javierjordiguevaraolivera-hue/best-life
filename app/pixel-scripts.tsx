@@ -7,6 +7,7 @@ const DISABLED_PIXEL_PATHS = new Set([
   '/3560-an-pre3',
   '/3560-an-pre4',
   '/3560-an-red',
+  '/call',
   '/estrategiafinancierausa',
   '/generaldeals3',
   '/generaldeals4',
