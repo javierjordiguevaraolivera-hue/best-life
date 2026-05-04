@@ -93,6 +93,7 @@ const disqualificationCookieMaxAge = 60 * 60 * 24 * 180;
 const ringbaNumberToReplace = "+18882882203";
 const ringbaTelHref = "tel:+18882882203";
 const ringbaScriptUrl = "//b-js.ringba.com/CA76c805e83b0e4db88d379944dc557457";
+const callFunnelPagePath = "/call-4";
 const metaPixelId = "1556647345340828";
 const tiktokPixelId = "D7R6JR3C77U4TTGIG1DG";
 const goalOptions = [
@@ -712,8 +713,32 @@ function trackCallFunnelEvent(eventName: "ViewContent" | "Contact", currentStep:
   trackingWindow.ttq?.track?.(eventName, eventParams);
 }
 
+function trackCallFunnelPageView() {
+  const trackingWindow = window as Window & {
+    __callFunnelPageViews?: Record<string, boolean>;
+    fbq?: (command: string, event: string, params?: Record<string, string>) => void;
+    ttq?: { page?: () => void };
+  };
+
+  if (trackingWindow.__callFunnelPageViews?.[callFunnelPagePath]) return;
+
+  trackingWindow.__callFunnelPageViews = trackingWindow.__callFunnelPageViews || {};
+  trackingWindow.__callFunnelPageViews[callFunnelPagePath] = true;
+  trackingWindow.fbq?.("track", "PageView", { page: callFunnelPagePath, step: "age" });
+  trackingWindow.ttq?.page?.();
+}
+
 function CallFunnelPixels({ currentStep }: { currentStep: FunnelStep }) {
   const trackedViewStepsRef = useRef<Set<FunnelStep>>(new Set());
+  const trackedPageViewRef = useRef(false);
+
+  useEffect(() => {
+    if (currentStep !== "age") return;
+    if (trackedPageViewRef.current) return;
+
+    trackedPageViewRef.current = true;
+    window.setTimeout(trackCallFunnelPageView, 1200);
+  }, [currentStep]);
 
   useEffect(() => {
     if (currentStep === "age" || currentStep === "disqualified") return;
@@ -753,6 +778,8 @@ function CallFunnelPixels({ currentStep }: { currentStep: FunnelStep }) {
           s.parentNode.insertBefore(t,s)}(window, document,'script',
           'https://connect.facebook.net/en_US/fbevents.js');
           fbq('init', '${metaPixelId}');
+          window.__callFunnelPageViews = window.__callFunnelPageViews || {};
+          window.__callFunnelPageViews['${callFunnelPagePath}'] = true;
           fbq('track', 'PageView');
         `}
       </Script>
