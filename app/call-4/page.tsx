@@ -93,6 +93,8 @@ const disqualificationCookieMaxAge = 60 * 60 * 24 * 180;
 const ringbaNumberToReplace = "+18882882203";
 const ringbaTelHref = "tel:+18882882203";
 const ringbaScriptUrl = "//b-js.ringba.com/CA76c805e83b0e4db88d379944dc557457";
+const metaPixelId = "1556647345340828";
+const tiktokPixelId = "D7R6JR3C77U4TTGIG1DG";
 const goalOptions = [
   "Seguro de vida",
   "Ahorrar e invertir",
@@ -697,6 +699,89 @@ function setDisqualificationCookie() {
 
 function clearDisqualificationCookie() {
   document.cookie = `${disqualificationCookieName}=; Max-Age=0; Path=/; SameSite=Lax`;
+}
+
+function trackCallFunnelEvent(eventName: "ViewContent" | "Contact", currentStep: FunnelStep) {
+  const trackingWindow = window as Window & {
+    fbq?: (command: string, event: string, params?: Record<string, string>) => void;
+    ttq?: { track?: (event: string, params?: Record<string, string>) => void };
+  };
+  const eventParams = { page: "/call-4", step: currentStep };
+
+  trackingWindow.fbq?.("track", eventName, eventParams);
+  trackingWindow.ttq?.track?.(eventName, eventParams);
+}
+
+function CallFunnelPixels({ currentStep }: { currentStep: FunnelStep }) {
+  const trackedViewStepsRef = useRef<Set<FunnelStep>>(new Set());
+
+  useEffect(() => {
+    if (currentStep === "age" || currentStep === "disqualified") return;
+    if (trackedViewStepsRef.current.has(currentStep)) return;
+
+    trackedViewStepsRef.current.add(currentStep);
+    trackCallFunnelEvent("ViewContent", currentStep);
+  }, [currentStep]);
+
+  useEffect(() => {
+    const handleCallClick = (event: MouseEvent) => {
+      const target = event.target as Element | null;
+      const callLink = target?.closest?.('a[href^="tel:"]');
+
+      if (!callLink) return;
+      trackCallFunnelEvent("Contact", currentStep);
+    };
+
+    document.addEventListener("click", handleCallClick);
+    return () => document.removeEventListener("click", handleCallClick);
+  }, [currentStep]);
+
+  if (currentStep === "disqualified") {
+    return null;
+  }
+
+  return (
+    <>
+      <Script id="meta-pixel-call-4" strategy="afterInteractive">
+        {`
+          !function(f,b,e,v,n,t,s)
+          {if(f.fbq)return;n=f.fbq=function(){n.callMethod?
+          n.callMethod.apply(n,arguments):n.queue.push(arguments)};
+          if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';
+          n.queue=[];t=b.createElement(e);t.async=!0;
+          t.src=v;s=b.getElementsByTagName(e)[0];
+          s.parentNode.insertBefore(t,s)}(window, document,'script',
+          'https://connect.facebook.net/en_US/fbevents.js');
+          fbq('init', '${metaPixelId}');
+          fbq('track', 'PageView');
+        `}
+      </Script>
+      <Script id="tiktok-pixel-call-4" strategy="afterInteractive">
+        {`
+          !function (w, d, t) {
+            w.TiktokAnalyticsObject=t;var ttq=w[t]=w[t]||[];
+            ttq.methods=["page","track","identify","instances","debug","on","off","once","ready","alias","group","enableCookie","disableCookie","holdConsent","revokeConsent","grantConsent"];
+            ttq.setAndDefer=function(t,e){t[e]=function(){t.push([e].concat(Array.prototype.slice.call(arguments,0)))}};
+            for(var i=0;i<ttq.methods.length;i++)ttq.setAndDefer(ttq,ttq.methods[i]);
+            ttq.instance=function(t){for(var e=ttq._i[t]||[],n=0;n<ttq.methods.length;n++)ttq.setAndDefer(e,ttq.methods[n]);return e};
+            ttq.load=function(e,n){var r="https://analytics.tiktok.com/i18n/pixel/events.js",o=n&&n.partner;ttq._i=ttq._i||{},ttq._i[e]=[],ttq._i[e]._u=r,ttq._t=ttq._t||{},ttq._t[e]=+new Date,ttq._o=ttq._o||{},ttq._o[e]=n||{};n=document.createElement("script");
+            n.type="text/javascript",n.async=!0,n.src=r+"?sdkid="+e+"&lib="+t;e=document.getElementsByTagName("script")[0];e.parentNode.insertBefore(n,e)};
+            ttq.load('${tiktokPixelId}');
+            ttq.page();
+          }(window, document, 'ttq');
+        `}
+      </Script>
+      <noscript>
+        <img
+          height="1"
+          width="1"
+          style={{ display: "none" }}
+          src={`https://www.facebook.com/tr?id=${metaPixelId}&ev=PageView&noscript=1`}
+          alt=""
+        />
+      </noscript>
+    </>
+  );
 }
 
 export default function Home() {
@@ -1677,6 +1762,7 @@ export default function Home() {
 
   return (
     <main className="min-h-screen bg-[var(--page-bg)] text-[var(--ink)]">
+      <CallFunnelPixels currentStep={currentStep} />
       <style jsx global>{`
         @import url("https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700;800&display=swap");
 
