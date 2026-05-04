@@ -3,8 +3,6 @@ import Script from "next/script";
 
 import QuotifyUs2PageClient from "./page-client";
 
-const GTM_CONTAINER_ID = "GTM-WZ4H2TNM";
-
 export const metadata: Metadata = {
   title: "Seguro de Vida",
   description: "La mejor cotización",
@@ -57,24 +55,6 @@ export default function QuotifyUs2Page() {
           style={{ display: "none" }}
           src="https://www.facebook.com/tr?id=980723860687387&ev=PageView&noscript=1"
           alt=""
-        />
-      </noscript>
-      <Script id="quotify-us2-gtm" strategy="afterInteractive">
-        {`
-          (function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
-          new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
-          j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
-          'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
-          })(window,document,'script','dataLayer','${GTM_CONTAINER_ID}');
-        `}
-      </Script>
-      <noscript>
-        <iframe
-          src={`https://www.googletagmanager.com/ns.html?id=${GTM_CONTAINER_ID}`}
-          height="0"
-          width="0"
-          style={{ display: "none", visibility: "hidden" }}
-          title="quotify-us2-gtm"
         />
       </noscript>
       <QuotifyUs2PageClient />
