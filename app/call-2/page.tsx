@@ -1,7 +1,6 @@
 ﻿"use client";
 
 import Image from "next/image";
-import Script from "next/script";
 import { useEffect, useRef, useState } from "react";
 import BenchCallPage from "./bench-call-page";
 
@@ -92,8 +91,6 @@ const ageOptions = ["25 a 34", "35 a 44", "45 a 54", "55 a 65", "65+"];
 const disqualificationCookieName = "best_life_call2_disqualified";
 const disqualificationCookieMaxAge = 60 * 60 * 24 * 180;
 const callFunnelPagePath = "/call-2";
-const metaPixelId = "1556647345340828";
-const tiktokPixelId = "D7R6JR3C77U4TTGIG1DG";
 const goalOptions = [
   "Seguro de vida",
   "Ahorrar e invertir",
@@ -675,17 +672,29 @@ function trackCallFunnelEvent(eventName: "ViewContent" | "Contact", currentStep:
     fbq?: (command: string, event: string, params?: Record<string, string>) => void;
     ttq?: { track?: (event: string, params?: Record<string, string>) => void };
   };
-  const eventParams = { page: "/call-2", step: currentStep };
+  const eventParams = {
+    page: "/call-2",
+    step: currentStep,
+    content_id: "call_iul",
+    content_type: "product",
+    content_name: "Seguro IUL Call Funnel",
+  };
 
   trackingWindow.fbq?.("track", eventName, eventParams);
   trackingWindow.ttq?.track?.(eventName, eventParams);
+  sendMetaPixelBeacon(eventName);
+}
+
+function sendMetaPixelBeacon(eventName: "PageView" | "ViewContent" | "Contact") {
+  const beacon = new window.Image();
+  beacon.src = `https://www.facebook.com/tr?id=1556647345340828&ev=${eventName}&noscript=1`;
 }
 
 function trackCallFunnelPageView() {
   const trackingWindow = window as Window & {
     __callFunnelPageViews?: Record<string, boolean>;
     fbq?: (command: string, event: string, params?: Record<string, string>) => void;
-    ttq?: { page?: () => void };
+    ttq?: { page?: (params?: Record<string, string>) => void };
   };
 
   if (trackingWindow.__callFunnelPageViews?.[callFunnelPagePath]) return;
@@ -693,7 +702,12 @@ function trackCallFunnelPageView() {
   trackingWindow.__callFunnelPageViews = trackingWindow.__callFunnelPageViews || {};
   trackingWindow.__callFunnelPageViews[callFunnelPagePath] = true;
   trackingWindow.fbq?.("track", "PageView", { page: callFunnelPagePath, step: "age" });
-  trackingWindow.ttq?.page?.();
+  trackingWindow.ttq?.page?.({
+    content_id: "call_iul",
+    content_type: "product",
+    content_name: "Seguro IUL Call Funnel",
+  });
+  sendMetaPixelBeacon("PageView");
 }
 
 function CallFunnelPixels({ currentStep }: { currentStep: FunnelStep }) {
@@ -733,50 +747,7 @@ function CallFunnelPixels({ currentStep }: { currentStep: FunnelStep }) {
     return null;
   }
 
-  return (
-    <>
-      <Script id="meta-pixel-call-2" strategy="afterInteractive">
-        {`
-          !function(f,b,e,v,n,t,s)
-          {if(f.fbq)return;n=f.fbq=function(){n.callMethod?
-          n.callMethod.apply(n,arguments):n.queue.push(arguments)};
-          if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';
-          n.queue=[];t=b.createElement(e);t.async=!0;
-          t.src=v;s=b.getElementsByTagName(e)[0];
-          s.parentNode.insertBefore(t,s)}(window, document,'script',
-          'https://connect.facebook.net/en_US/fbevents.js');
-          fbq('init', '${metaPixelId}');
-          window.__callFunnelPageViews = window.__callFunnelPageViews || {};
-          window.__callFunnelPageViews['${callFunnelPagePath}'] = true;
-          fbq('track', 'PageView');
-        `}
-      </Script>
-      <Script id="tiktok-pixel-call-2" strategy="afterInteractive">
-        {`
-          !function (w, d, t) {
-            w.TiktokAnalyticsObject=t;var ttq=w[t]=w[t]||[];
-            ttq.methods=["page","track","identify","instances","debug","on","off","once","ready","alias","group","enableCookie","disableCookie","holdConsent","revokeConsent","grantConsent"];
-            ttq.setAndDefer=function(t,e){t[e]=function(){t.push([e].concat(Array.prototype.slice.call(arguments,0)))}};
-            for(var i=0;i<ttq.methods.length;i++)ttq.setAndDefer(ttq,ttq.methods[i]);
-            ttq.instance=function(t){for(var e=ttq._i[t]||[],n=0;n<ttq.methods.length;n++)ttq.setAndDefer(e,ttq.methods[n]);return e};
-            ttq.load=function(e,n){var r="https://analytics.tiktok.com/i18n/pixel/events.js",o=n&&n.partner;ttq._i=ttq._i||{},ttq._i[e]=[],ttq._i[e]._u=r,ttq._t=ttq._t||{},ttq._t[e]=+new Date,ttq._o=ttq._o||{},ttq._o[e]=n||{};n=document.createElement("script");
-            n.type="text/javascript",n.async=!0,n.src=r+"?sdkid="+e+"&lib="+t;e=document.getElementsByTagName("script")[0];e.parentNode.insertBefore(n,e)};
-            ttq.load('${tiktokPixelId}');
-            ttq.page();
-          }(window, document, 'ttq');
-        `}
-      </Script>
-      <noscript>
-        <img
-          height="1"
-          width="1"
-          style={{ display: "none" }}
-          src={`https://www.facebook.com/tr?id=${metaPixelId}&ev=PageView&noscript=1`}
-          alt=""
-        />
-      </noscript>
-    </>
-  );
+  return null;
 }
 
 export default function Home() {
