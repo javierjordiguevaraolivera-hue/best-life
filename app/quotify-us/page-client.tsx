@@ -15,7 +15,7 @@ const logos = [
   "https://assets.prd.heyflow.com/flows/YXR7oey1nl7HBhqMQV2q/www/assets/4e4206b8-e4c4-4bb8-9930-19ac536d4d09/original.avif",
 ];
 
-type Step = "age" | "goal" | "location" | "name" | "phone" | "email" | "success";
+type Step = "age" | "goal" | "location" | "name" | "phone" | "email";
 type Answers = {
   ageGroup: string;
   insuranceGoal: string;
@@ -97,7 +97,7 @@ const progressMap: Partial<Record<Step, { filled: number; total: number; label: 
   email: { filled: 19, total: 20, label: "Progreso: 97%" },
 };
 
-const steps: Step[] = ["age", "goal", "location", "name", "phone", "email", "success"];
+const steps: Step[] = ["age", "goal", "location", "name", "phone", "email"];
 const storageKey = "quotify-us-funnel-v1";
 const deviceStorageKey = "best-money-device-id";
 const formId = "quotify-us-form";
@@ -457,143 +457,6 @@ function FooterLegal() {
   );
 }
 
-function SuccessPage() {
-  return (
-    <div className="overflow-hidden rounded-[26px] bg-white shadow-[0_20px_50px_rgba(15,23,42,0.12)]">
-      <section className="border-b-[3px] border-[#10b981] px-5 pb-[18px] pt-5 text-center">
-        <div className="mx-auto flex h-[70px] w-[70px] items-center justify-center rounded-full bg-[linear-gradient(135deg,#10b981,#059669)] shadow-[0_8px_24px_rgba(16,185,129,0.3)]">
-          <svg viewBox="0 0 52 52" className="h-10 w-10" fill="none">
-            <polyline points="14 27 22 35 38 19" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
-        </div>
-        <h1 className="mt-4 text-[1.4em] font-bold leading-[1.3] text-[#1f2937]">
-          ¡Felicidades! Tu Solicitud Fue <span className="text-[#10b981]">Recibida Exitosamente</span>
-        </h1>
-        <p className="mt-3 text-[0.92em] leading-[1.5] text-[#6b7280]">
-          Estás a un paso de la estrategia financiera que usan los millonarios
-        </p>
-      </section>
-
-      <section className="relative bg-[linear-gradient(135deg,#ef4444,#dc2626)] px-5 pb-[22px] pt-6 text-center text-white">
-        <div className="absolute left-1/2 top-[-22px] -translate-x-1/2 text-[45px] animate-[bounceBadge_1s_ease-in-out_infinite]">
-          🚨
-        </div>
-        <h2 className="text-[1.35em] font-bold">📞 Te Llamaremos Pronto</h2>
-        <div className="mt-3 inline-block rounded-full border-2 border-white/40 bg-white/25 px-4 py-2 text-[1.05em] font-bold">
-          ⏰ Próximas 2 Horas Hábiles
-        </div>
-        <p className="mt-3 text-[0.96em] leading-[1.6]">
-          Un asesor certificado te contactará para tu consulta personalizada de 30-45 minutos
-        </p>
-      </section>
-
-      <section className="border-y-4 border-[#f59e0b] bg-[#fef3c7] px-5 pb-[18px] pt-5">
-        <div className="inline-block rounded-full bg-[linear-gradient(135deg,#ef4444,#dc2626)] px-4 py-2 text-[0.85em] font-bold text-white animate-[pulseLite_2s_ease-in-out_infinite]">
-          ⚡ MIRA ESTO AHORA - 3 MINUTOS
-        </div>
-        <h3 className="mt-3 text-[1.15em] font-bold leading-[1.3] text-[#78350f]">
-          Edúcate Mientras Esperas La Llamada
-        </h3>
-        <p className="mt-2 text-[0.86em] leading-[1.4] text-[#92400e]">
-          Descubre cómo proteger a tu familia MIENTRAS construyes riqueza libre de impuestos
-        </p>
-        <div className="mt-4 overflow-hidden rounded-[10px] shadow-[0_6px_20px_rgba(0,0,0,0.2)]">
-          <div className="relative pb-[56.25%]">
-            <iframe src="https://fast.wistia.net/embed/iframe/70xicsvine" title="Video informativo" allow="autoplay; fullscreen" className="absolute inset-0 h-full w-full border-0" />
-          </div>
-        </div>
-        <div className="mt-4 grid gap-3">
-          <div className="rounded-[8px] border-l-[3px] border-[#10b981] bg-white px-3 py-3">
-            <strong className="block text-[0.95em] text-[#1f2937]">✓ Acceso Sin Penalidades</strong>
-            <span className="text-[0.9em] text-[#6b7280]">Usa tu dinero cuando quieras</span>
-          </div>
-          <div className="rounded-[8px] border-l-[3px] border-[#10b981] bg-white px-3 py-3">
-            <strong className="block text-[0.95em] text-[#1f2937]">✓ Estrategia de los Ricos</strong>
-            <span className="text-[0.9em] text-[#6b7280]">El secreto que el 95% desconoce</span>
-          </div>
-        </div>
-      </section>
-
-      <section className="bg-white px-5 py-5">
-        <h3 className="text-[1.1em] font-bold text-[#1f2937]">📋 Cómo Será La Llamada</h3>
-        <div className="mt-4 grid gap-3">
-          <div className="rounded-[10px] border-l-[3px] border-[#3b82f6] bg-[#f9fafb] px-3 py-3">
-            <strong className="block text-[0.9em] text-[#1f2937]">⚡ Número Puede Variar</strong>
-            <p className="mt-1 text-[0.82em] leading-[1.5] text-[#6b7280]">
-              Trabajamos con asesores certificados en todo el país. El código de área puede cambiar según tu especialista asignado.
-            </p>
-          </div>
-          <div className="rounded-[10px] border-l-[3px] border-[#3b82f6] bg-[#f9fafb] px-3 py-3">
-            <strong className="block text-[0.9em] text-[#1f2937]">⚡ Identificación Completa</strong>
-            <p className="mt-1 text-[0.82em] leading-[1.5] text-[#6b7280]">
-              Nuestro asesor se presentará con nombre completo y confirmará tu solicitud de hace unos minutos.
-            </p>
-          </div>
-          <div className="rounded-[10px] border-l-[3px] border-[#3b82f6] bg-[#f9fafb] px-3 py-3">
-            <strong className="block text-[0.9em] text-[#1f2937]">⚡ Ambiente Tranquilo</strong>
-            <p className="mt-1 text-[0.82em] leading-[1.5] text-[#6b7280]">Busca un lugar privado. La consulta toma 30-45 minutos.</p>
-          </div>
-        </div>
-      </section>
-
-      <section className="border-t-[3px] border-[#3b82f6] bg-[#f0f9ff] px-5 py-5">
-        <h3 className="text-[1.1em] font-bold text-[#1e40af]">✅ Ten Esta Info Lista</h3>
-        <ul className="mt-4 grid gap-3">
-          {[
-            ["Datos Personales", "Fecha de nacimiento, estado civil, ocupación"],
-            ["Salud General", "Altura, peso, medicamentos, historial básico"],
-            ["Ingresos & Objetivos", "Ingresos anuales, metas a 10-20 años"],
-            ["Protección Deseada", "¿Cuánto necesita tu familia? (10-15x tu ingreso)"],
-            ["Beneficiarios", "Nombres de quienes deseas proteger"],
-          ].map(([title, text]) => (
-            <li key={title} className="flex items-start gap-3 rounded-[8px] bg-white px-3 py-3 shadow-[0_2px_4px_rgba(0,0,0,0.05)]">
-              <span className="mt-[1px] inline-flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-full bg-[#d1fae5] text-[1.05em] font-bold text-[#10b981]">✓</span>
-              <div>
-                <strong className="block text-[0.95em] text-[#1f2937]">{title}</strong>
-                <span className="text-[0.88em] text-[#6b7280]">{text}</span>
-              </div>
-            </li>
-          ))}
-        </ul>
-      </section>
-
-      <section className="border-t-2 border-[#e5e7eb] bg-white px-5 py-4 text-center">
-        <h4 className="text-[0.95em] font-bold text-[#1f2937]">🔒 Tu Información Está Protegida</h4>
-        <div className="mt-3 flex flex-wrap justify-center gap-3 text-[0.8em] font-semibold text-[#059669]">
-          <span>✓ Asesores Certificados</span>
-          <span>✓ Confidencial</span>
-          <span>✓ Sin Compromiso</span>
-        </div>
-      </section>
-
-      <section className="bg-[#f9fafb] px-5 py-5">
-        <h3 className="text-[1.1em] font-bold text-[#1f2937]">❓ Preguntas Rápidas</h3>
-        <div className="mt-4 grid gap-3">
-          {[
-            ["¿Si no contesto la llamada?", "Intentaremos 2-3 veces en diferentes horarios."],
-            ["¿Hay algún costo?", "No. La consulta es 100% gratuita y sin compromiso."],
-            ["¿Necesito mucho dinero?", "No. Trabajamos desde $100 hasta $5,000+ mensuales."],
-          ].map(([title, text]) => (
-            <div key={title} className="rounded-[8px] border-l-[3px] border-[#8b5cf6] bg-white px-3 py-3">
-              <strong className="block text-[0.88em] text-[#1f2937]">{title}</strong>
-              <p className="mt-1 text-[0.82em] leading-[1.5] text-[#6b7280]">{text}</p>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      <section className="relative border-t-4 border-[#fbbf24] bg-[linear-gradient(135deg,#1e293b,#0f172a)] px-5 pb-7 pt-10 text-center text-white">
-        <div className="absolute left-1/2 top-[-30px] flex h-[60px] w-[60px] -translate-x-1/2 items-center justify-center rounded-full bg-white text-[50px] shadow-[0_8px_24px_rgba(0,0,0,0.2)]">📱</div>
-        <p className="text-[1.05em] leading-[1.7] text-[#e5e7eb]">
-          Mantén tu teléfono cerca y con <strong className="inline-block rounded-[6px] bg-[rgba(251,191,36,0.1)] px-3 py-1 text-[1.15em] uppercase tracking-[0.5px] text-[#fbbf24]">sonido activado</strong>
-        </p>
-        <p className="mt-3 text-[0.9em] italic text-white/85">
-          Si ves una llamada entrante en las próximas 2 horas, probablemente somos nosotros
-        </p>
-      </section>
-    </div>
-  );
-}
 
 export default function QuotifyUsPageClient() {
   const pathname = usePathname();
@@ -651,7 +514,7 @@ export default function QuotifyUsPageClient() {
       if (!saved) return;
       const parsed = JSON.parse(saved) as { answers?: Partial<Answers>; step?: Step };
       if (parsed.answers) setAnswers((prev) => ({ ...prev, ...parsed.answers }));
-      if (parsed.step && parsed.step !== "success" && steps.includes(parsed.step)) setStep(parsed.step);
+      if (parsed.step && steps.includes(parsed.step)) setStep(parsed.step);
     } catch {}
   }, []);
 
@@ -689,7 +552,6 @@ export default function QuotifyUsPageClient() {
   }, []);
 
   useEffect(() => {
-    if (step === "success") return;
     window.scrollTo({ top: 0, behavior: "smooth" });
   }, [step]);
 
@@ -800,23 +662,25 @@ export default function QuotifyUsPageClient() {
           capturedAt: new Date().toISOString(),
         }),
       );
-      setStep("success");
+      const nextParams = new URLSearchParams(window.location.search);
+      nextParams.set("funnel_id", "quotify-us");
+      nextParams.set("first_name", answers.firstName.trim());
+      nextParams.set("insurance_goal", answers.insuranceGoal);
+      if (activeRuntimeConfig.payPerCallPhoneNumber) {
+        nextParams.set("ppc_phone", activeRuntimeConfig.payPerCallPhoneNumber);
+      }
+      if (activeRuntimeConfig.ringbaCampaignId) {
+        nextParams.set("ringba_campaign_id", activeRuntimeConfig.ringbaCampaignId);
+      }
+      const nextSearch = nextParams.toString() ? `?${nextParams.toString()}` : "";
 
       if (salePath === "call") {
-        const nextParams = new URLSearchParams(window.location.search);
-        nextParams.set("funnel_id", "quotify-us");
-        nextParams.set("first_name", answers.firstName.trim());
-        nextParams.set("insurance_goal", answers.insuranceGoal);
-        if (activeRuntimeConfig.payPerCallPhoneNumber) {
-          nextParams.set("ppc_phone", activeRuntimeConfig.payPerCallPhoneNumber);
-        }
-        if (activeRuntimeConfig.ringbaCampaignId) {
-          nextParams.set("ringba_campaign_id", activeRuntimeConfig.ringbaCampaignId);
-        }
-        const nextSearch = nextParams.toString() ? `?${nextParams.toString()}` : "";
         setSubmittedContinueUrl(`/thanks/call2${nextSearch}`);
         setIsPayPerCallPopupOpen(true);
+        return;
       }
+
+      window.location.assign(`/thanks/lead${nextSearch}`);
     } catch (error) {
       setSubmitError(error instanceof Error ? error.message : "No pudimos enviar tu solicitud.");
     } finally {
@@ -830,15 +694,10 @@ export default function QuotifyUsPageClient() {
     <main className="min-h-[100dvh] bg-white px-0 py-0 text-[#111827]" style={{ fontFamily: '"Open Sans", Arial, sans-serif' }}>
       <style jsx global>{`
         @import url("https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700;800&family=Poppins:wght@500;600;700;800&display=swap");
-        @keyframes pulseLite { 0%,100% { transform: scale(1); } 50% { transform: scale(1.04); } }
-        @keyframes bounceBadge { 0%,100% { transform: translateX(-50%) translateY(0); } 50% { transform: translateX(-50%) translateY(-8px); } }
       `}</style>
 
       <div id={formId} data-form-id={formId} data-form-name={formName} className="mx-auto flex w-full max-w-[431px] flex-col gap-0">
-        {step === "success" ? (
-          <SuccessPage />
-        ) : (
-          <section className="min-h-[100dvh] bg-white px-[3px] py-5">
+        <section className="min-h-[100dvh] bg-white px-[3px] py-5">
             {step === "age" && (
               <>
                 <div className="rounded-[16px] border-b-[3px] border-[#7ecf9a] bg-[#edf9f1] px-4 py-4 text-center">
@@ -1095,8 +954,7 @@ export default function QuotifyUsPageClient() {
                 </div>
               </>
             )}
-          </section>
-        )}
+        </section>
         <FooterLegal />
       </div>
       <PopUp1
