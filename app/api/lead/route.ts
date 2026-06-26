@@ -6,6 +6,7 @@ type LeadPayload = {
   answers?: Record<string, unknown>;
   meta?: {
     deviceId?: string;
+    salePath?: "lead" | "call";
   };
 };
 
@@ -142,6 +143,8 @@ export async function POST(request: Request) {
     "unknown";
   const phoneValidation = validateUsPhone(body.answers.phoneNumber);
   const deviceId = String(body.meta?.deviceId || "").trim();
+  const salePath = body.meta?.salePath === "call" ? "call" : "lead";
+  const leadStatus = salePath === "call" ? "pending_call" : "ready_for_sell";
   const now = Date.now();
   const duplicatePhoneCount = phoneValidation.normalized
     ? pruneAndCount(phoneAttempts, phoneValidation.normalized, PHONE_WINDOW_MS, now)
@@ -177,6 +180,8 @@ export async function POST(request: Request) {
     submittedAt: new Date().toISOString(),
     source: "best-money-next",
     pagina: body.page || "home",
+    salePath,
+    leadStatus,
     ipAddress: requestIp,
     geolocation: geo,
     ...restAnswers,

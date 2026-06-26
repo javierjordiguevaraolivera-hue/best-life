@@ -2,6 +2,7 @@
 
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
+import PopUp1 from "@/components/pop-up1";
 import { getDetectedZipCode } from "@/lib/quotify-us";
 
 const ageOptions = ["25 a 34", "35 a 44", "45 a 50", "50 a 55"];
@@ -38,6 +39,13 @@ type LeadSubmitResponse = {
   ok?: boolean;
   forwarded?: boolean;
   error?: string;
+};
+type RuntimeConfig = {
+  payPerCallStatus: string;
+  payPerCallStartTime: string;
+  payPerCallEndTime: string;
+  payPerCallPhoneNumber: string;
+  ringbaCampaignId: string;
 };
 type SubmittedLead = {
   ageGroup: string;
@@ -94,6 +102,13 @@ const storageKey = "quotify-us-funnel-v1";
 const deviceStorageKey = "best-money-device-id";
 const formId = "quotify-us-form";
 const formName = "quotify_us_life_insurance_form";
+const defaultRuntimeConfig: RuntimeConfig = {
+  payPerCallStatus: "OFF",
+  payPerCallStartTime: "",
+  payPerCallEndTime: "",
+  payPerCallPhoneNumber: "",
+  ringbaCampaignId: "",
+};
 
 function normalizeZip(value: string) {
   return value.replace(/\D/g, "").slice(0, 5);
@@ -162,6 +177,40 @@ function phoneErrorMessage(value: string) {
 
 function validEmail(value: string) {
   return /^\S+@\S+\.\S+$/.test(value.trim());
+}
+
+function parseTimeToMinutes(value: string) {
+  if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(value)) return null;
+
+  const [hours, minutes] = value.split(":").map(Number);
+  return hours * 60 + minutes;
+}
+
+function getNewYorkMinutes() {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/New_York",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).formatToParts(new Date());
+  const hour = Number(parts.find((part) => part.type === "hour")?.value);
+  const minute = Number(parts.find((part) => part.type === "minute")?.value);
+
+  if (!Number.isFinite(hour) || !Number.isFinite(minute)) return null;
+  return hour * 60 + minute;
+}
+
+function isPayPerCallWindowOpen(config: RuntimeConfig) {
+  if (config.payPerCallStatus !== "ON") return false;
+
+  const start = parseTimeToMinutes(config.payPerCallStartTime);
+  const end = parseTimeToMinutes(config.payPerCallEndTime);
+  const current = getNewYorkMinutes();
+
+  if (start == null || end == null || current == null) return false;
+  if (start === end) return true;
+  if (start < end) return current >= start && current < end;
+  return current >= start || current < end;
 }
 
 function getOrCreateDeviceId() {
@@ -556,12 +605,46 @@ export default function QuotifyUsPageClient() {
   const [emailError, setEmailError] = useState("");
   const [submitError, setSubmitError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isPayPerCallPopupOpen, setIsPayPerCallPopupOpen] = useState(false);
+  const [runtimeConfig, setRuntimeConfig] = useState<RuntimeConfig>(defaultRuntimeConfig);
+  const [submittedContinueUrl, setSubmittedContinueUrl] = useState("/thanks/call2");
   const zipLookupRef = useRef<number | null>(null);
+  const runtimeConfigRef = useRef<RuntimeConfig>(defaultRuntimeConfig);
   const page = pathname || "/quotify-us";
   const progress = progressMap[step];
   const displayName = answers.firstName.trim() || "amigo";
   const selectedState = answers.state || answers.detectedState;
   const detectedCity = extractCity(answers.locationText || answers.userCityState);
+  useEffect(() => {
+    let isMounted = true;
+
+    async function loadRuntimeConfig() {
+      try {
+        const response = await fetch("/api/runtime-config", { cache: "no-store" });
+        if (!response.ok) return;
+
+        const config = (await response.json()) as Partial<RuntimeConfig>;
+        const nextConfig = {
+          ...defaultRuntimeConfig,
+          ...Object.fromEntries(
+            Object.entries(config).filter(([, value]) => typeof value === "string" && value.trim()),
+          ),
+        } as RuntimeConfig;
+
+        if (!isMounted) return;
+        runtimeConfigRef.current = nextConfig;
+        setRuntimeConfig(nextConfig);
+      } catch {
+        // Keep the safe lead-path fallback when runtime config is unavailable.
+      }
+    }
+
+    void loadRuntimeConfig();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
   useEffect(() => {
     try {
       const saved = window.localStorage.getItem(storageKey);
@@ -635,6 +718,8 @@ export default function QuotifyUsPageClient() {
     try {
       const { resolvedZipCode, resolvedLocationText, resolvedState, resolvedDetectedState } = await resolveLocationSnapshot(answers);
       const normalizedPhone = normalizePhone(answers.phoneNumber);
+      const activeRuntimeConfig = runtimeConfigRef.current;
+      const salePath = isPayPerCallWindowOpen(activeRuntimeConfig) ? "call" : "lead";
       const cleanedAnswers = Object.fromEntries(
         Object.entries({
           ageGroup: answers.ageGroup,
@@ -658,6 +743,7 @@ export default function QuotifyUsPageClient() {
           answers: cleanedAnswers,
           meta: {
             deviceId: getOrCreateDeviceId(),
+            salePath,
           },
         }),
       });
@@ -715,6 +801,22 @@ export default function QuotifyUsPageClient() {
         }),
       );
       setStep("success");
+
+      if (salePath === "call") {
+        const nextParams = new URLSearchParams(window.location.search);
+        nextParams.set("funnel_id", "quotify-us");
+        nextParams.set("first_name", answers.firstName.trim());
+        nextParams.set("insurance_goal", answers.insuranceGoal);
+        if (activeRuntimeConfig.payPerCallPhoneNumber) {
+          nextParams.set("ppc_phone", activeRuntimeConfig.payPerCallPhoneNumber);
+        }
+        if (activeRuntimeConfig.ringbaCampaignId) {
+          nextParams.set("ringba_campaign_id", activeRuntimeConfig.ringbaCampaignId);
+        }
+        const nextSearch = nextParams.toString() ? `?${nextParams.toString()}` : "";
+        setSubmittedContinueUrl(`/thanks/call2${nextSearch}`);
+        setIsPayPerCallPopupOpen(true);
+      }
     } catch (error) {
       setSubmitError(error instanceof Error ? error.message : "No pudimos enviar tu solicitud.");
     } finally {
@@ -997,6 +1099,20 @@ export default function QuotifyUsPageClient() {
         )}
         <FooterLegal />
       </div>
+      <PopUp1
+        open={isPayPerCallPopupOpen}
+        firstName={answers.firstName}
+        goal={answers.insuranceGoal}
+        continueUrl={submittedContinueUrl}
+        phoneNumber={runtimeConfig.payPerCallPhoneNumber}
+        ringbaCampaignId={runtimeConfig.ringbaCampaignId}
+        ringbaTags={{
+          funnel_id: "quotify-us",
+          quotify_us_age_group: answers.ageGroup,
+          quotify_us_insurance_goal: answers.insuranceGoal,
+        }}
+        onClose={() => setIsPayPerCallPopupOpen(false)}
+      />
     </main>
   );
 }
