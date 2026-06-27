@@ -3,6 +3,7 @@
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import PopUp1 from "@/components/pop-up1";
+import { buildApplicationNumber } from "@/lib/application-number";
 import { getDetectedZipCode } from "@/lib/quotify-us";
 
 const ageOptions = ["25 a 34", "35 a 44", "45 a 50", "50 a 55"];
@@ -37,7 +38,8 @@ type Answers = {
 type LocationResponse = { location?: string; state?: string | null; zipCode?: string | null };
 type LeadSubmitResponse = {
   ok?: boolean;
-  forwarded?: boolean;
+  saved?: boolean;
+  leadId?: string | null;
   error?: string;
 };
 type RuntimeConfig = {
@@ -102,6 +104,8 @@ const storageKey = "quotify-us-funnel-v1";
 const deviceStorageKey = "best-money-device-id";
 const formId = "quotify-us-form";
 const formName = "quotify_us_life_insurance_form";
+const trustedFormScriptId = "quotify-us-trustedform-certify-sdk";
+const trustedFormFieldName = process.env.NEXT_PUBLIC_TRUSTEDFORM_FIELD || "xxTrustedFormCertUrl";
 const defaultRuntimeConfig: RuntimeConfig = {
   payPerCallStatus: "OFF",
   payPerCallStartTime: "",
@@ -177,6 +181,12 @@ function phoneErrorMessage(value: string) {
 
 function validEmail(value: string) {
   return /^\S+@\S+\.\S+$/.test(value.trim());
+}
+
+function getTrustedFormCertUrl() {
+  if (typeof document === "undefined") return "";
+  const field = document.getElementsByName(trustedFormFieldName)[0] as HTMLInputElement | undefined;
+  return field?.value?.trim() || "";
 }
 
 function parseTimeToMinutes(value: string) {
@@ -450,7 +460,7 @@ function FooterLegal() {
       </a>
       <div className="mt-6 space-y-4 text-[11px] leading-[1.6]">
         <p className="font-semibold text-[#273041]">© 2025 Quotify. All Rights Reserved.</p>
-        <p>This site is not part of Facebook or Meta Platforms, Inc. Additionally, this site is not endorsed by Facebook in any way. "Facebook" is a registered trademark of Meta Platforms, Inc.</p>
+        <p>This site is not part of Facebook or Meta Platforms, Inc. Additionally, this site is not endorsed by Facebook in any way. &quot;Facebook&quot; is a registered trademark of Meta Platforms, Inc.</p>
         <p>Vida+ is an independent lead generation and marketing service provider. This website and the services offered are not sponsored, affiliated with, endorsed, or administered by Facebook. The content on this site has not been reviewed, approved, or certified by Facebook or any of its subsidiaries.</p>
       </div>
     </footer>
@@ -471,13 +481,35 @@ export default function QuotifyUsPageClient() {
   const [isPayPerCallPopupOpen, setIsPayPerCallPopupOpen] = useState(false);
   const [runtimeConfig, setRuntimeConfig] = useState<RuntimeConfig>(defaultRuntimeConfig);
   const [submittedContinueUrl, setSubmittedContinueUrl] = useState("/thanks/call2");
+  const [submittedLeadId, setSubmittedLeadId] = useState("");
   const zipLookupRef = useRef<number | null>(null);
+  const leadUrlRef = useRef("");
   const runtimeConfigRef = useRef<RuntimeConfig>(defaultRuntimeConfig);
   const page = pathname || "/quotify-us";
   const progress = progressMap[step];
   const displayName = answers.firstName.trim() || "amigo";
   const selectedState = answers.state || answers.detectedState;
   const detectedCity = extractCity(answers.locationText || answers.userCityState);
+
+  useEffect(() => {
+    leadUrlRef.current = window.location.href;
+  }, []);
+
+  useEffect(() => {
+    if (document.getElementById(trustedFormScriptId)) return;
+
+    const trustedFormScript = document.createElement("script");
+    trustedFormScript.id = trustedFormScriptId;
+    trustedFormScript.type = "text/javascript";
+    trustedFormScript.async = true;
+    trustedFormScript.src = `${window.location.protocol}//api.trustedform.com/trustedform.js?field=${encodeURIComponent(
+      trustedFormFieldName,
+    )}&use_tagged_consent=true&l=${Date.now()}${Math.random()}`;
+
+    const firstScript = document.getElementsByTagName("script")[0];
+    firstScript?.parentNode?.insertBefore(trustedFormScript, firstScript);
+  }, []);
+
   useEffect(() => {
     let isMounted = true;
 
@@ -576,12 +608,22 @@ export default function QuotifyUsPageClient() {
     }
     setEmailError("");
     setSubmitError("");
+
+    if (submittedLeadId) {
+      setIsPayPerCallPopupOpen(true);
+      return;
+    }
+
     setIsSubmitting(true);
     try {
       const { resolvedZipCode, resolvedLocationText, resolvedState, resolvedDetectedState } = await resolveLocationSnapshot(answers);
       const normalizedPhone = normalizePhone(answers.phoneNumber);
       const activeRuntimeConfig = runtimeConfigRef.current;
       const salePath = isPayPerCallWindowOpen(activeRuntimeConfig) ? "call" : "lead";
+      const urlParams = new URLSearchParams(window.location.search);
+      const sub1 = urlParams.get("sub1")?.trim() || "";
+      const sub2 = urlParams.get("sub2")?.trim() || "";
+      const adaccountName = urlParams.get("adaccount_name")?.trim() || "";
       const cleanedAnswers = Object.fromEntries(
         Object.entries({
           ageGroup: answers.ageGroup,
@@ -593,19 +635,38 @@ export default function QuotifyUsPageClient() {
           email: answers.email.trim(),
           locationText: resolvedLocationText,
           zipCode: resolvedZipCode,
+          sub1,
+          sub2,
+          sub4: answers.sub4,
+          sub11: answers.sub11,
+          consent: answers.consent,
+          queryParams: answers.queryParams,
+          queryParamsAll: answers.queryParamsAll,
         }).filter(([, value]) => value !== "" && value != null),
       );
-      const response = await fetch("/api/lead", {
+      const tokenResponse = await fetch("/api/lead-token", { cache: "no-store" });
+      const tokenBody = (await tokenResponse.json().catch(() => null)) as { token?: string } | null;
+      const leadToken = tokenBody?.token;
+
+      if (!tokenResponse.ok || !leadToken) {
+        throw new Error("No pudimos preparar el envío seguro. Intenta nuevamente.");
+      }
+
+      const response = await fetch("/api/lead-quotify-us", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          "x-lead-token": leadToken,
         },
         body: JSON.stringify({
           page,
           answers: cleanedAnswers,
           meta: {
             deviceId: getOrCreateDeviceId(),
+            trustedFormCertUrl: getTrustedFormCertUrl(),
             salePath,
+            adaccountName,
+            leadUrl: leadUrlRef.current || window.location.href,
           },
         }),
       });
@@ -614,6 +675,9 @@ export default function QuotifyUsPageClient() {
       if (!response.ok || !result?.ok) {
         throw new Error(result?.error || "No pudimos enviar tu solicitud.");
       }
+
+      const leadId = result.leadId || "";
+      setSubmittedLeadId(leadId);
 
       const submittedLead: SubmittedLead = {
         ageGroup: answers.ageGroup,
@@ -656,7 +720,8 @@ export default function QuotifyUsPageClient() {
           meta: {
             deviceId: getOrCreateDeviceId(),
             funnel: "quotify-us",
-            preparedForWebhook: true,
+            leadId,
+            savedInSupabase: true,
           },
           lead: submittedLead,
           capturedAt: new Date().toISOString(),
@@ -664,6 +729,10 @@ export default function QuotifyUsPageClient() {
       );
       const nextParams = new URLSearchParams(window.location.search);
       nextParams.set("funnel_id", "quotify-us");
+      if (leadId) {
+        nextParams.set("lead_id", leadId);
+      }
+      nextParams.set("application_number", buildApplicationNumber(leadId));
       nextParams.set("first_name", answers.firstName.trim());
       nextParams.set("insurance_goal", answers.insuranceGoal);
       if (activeRuntimeConfig.payPerCallPhoneNumber) {
@@ -688,8 +757,6 @@ export default function QuotifyUsPageClient() {
     }
   }
 
-  const buttonClass = "inline-flex h-[56px] w-full items-center justify-center gap-2 rounded-[999px] bg-[#0b73ff] px-6 text-[18px] font-semibold text-white transition hover:bg-[#0968e6]";
-
   return (
     <main className="min-h-[100dvh] bg-white px-0 py-0 text-[#111827]" style={{ fontFamily: '"Open Sans", Arial, sans-serif' }}>
       <style jsx global>{`
@@ -697,6 +764,7 @@ export default function QuotifyUsPageClient() {
       `}</style>
 
       <div id={formId} data-form-id={formId} data-form-name={formName} className="mx-auto flex w-full max-w-[431px] flex-col gap-0">
+        <input type="hidden" name={trustedFormFieldName} />
         <section className="min-h-[100dvh] bg-white px-[3px] py-5">
             {step === "age" && (
               <>
@@ -961,11 +1029,13 @@ export default function QuotifyUsPageClient() {
         open={isPayPerCallPopupOpen}
         firstName={answers.firstName}
         goal={answers.insuranceGoal}
+        leadId={submittedLeadId}
         continueUrl={submittedContinueUrl}
         phoneNumber={runtimeConfig.payPerCallPhoneNumber}
         ringbaCampaignId={runtimeConfig.ringbaCampaignId}
         ringbaTags={{
           funnel_id: "quotify-us",
+          lead_id: submittedLeadId,
           quotify_us_age_group: answers.ageGroup,
           quotify_us_insurance_goal: answers.insuranceGoal,
         }}
