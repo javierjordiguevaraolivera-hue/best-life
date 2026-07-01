@@ -58,6 +58,7 @@ export async function GET(
   context: { params: Promise<{ zip: string }> }
 ) {
   const { zip } = await context.params;
+  const strictZippopotam = new URL(request.url).searchParams.get("strict") === "zippopotam";
 
   if (!/^\d{5}$/.test(zip)) {
     return NextResponse.json({ error: "Invalid ZIP code" }, { status: 400 });
@@ -67,6 +68,10 @@ export async function GET(
 
   if (zipLocation) {
     return NextResponse.json(zipLocation);
+  }
+
+  if (strictZippopotam) {
+    return NextResponse.json({ error: "ZIP code not found" }, { status: 404 });
   }
 
   const ipLocation = buildVercelLocation(geolocation(request));

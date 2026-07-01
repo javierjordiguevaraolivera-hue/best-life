@@ -2,6 +2,7 @@ import { geolocation, ipAddress, waitUntil } from "@vercel/functions";
 import { NextResponse } from "next/server";
 import { leadTokenCookieName } from "@/app/api/lead-token/route";
 import { buildApplicationNumber } from "@/lib/application-number";
+import { validateLeadPhoneVerification } from "@/lib/phone-verification";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
 type LeadPayload = {
@@ -13,14 +14,9 @@ type LeadPayload = {
     salePath?: "lead" | "call";
     adaccountName?: string;
     leadUrl?: string;
+    phoneVerification?: unknown;
+    phoneVerificationToken?: string;
   };
-};
-
-type PhoneValidationResult = {
-  isValid: boolean;
-  normalized: string;
-  flags: string[];
-  reason?: string;
 };
 
 type TrustedFormClaimResult = {
@@ -167,14 +163,6 @@ function getRequestCookie(request: Request, name: string) {
   if (!cookie) return "";
 
   return decodeURIComponent(cookie.slice(name.length + 1));
-}
-
-function normalizeUsPhone(value: unknown) {
-  const digits = String(value || "").replace(/\D/g, "");
-  if (digits.length === 11 && digits.startsWith("1")) {
-    return digits.slice(1);
-  }
-  return digits;
 }
 
 function normalizeString(value: unknown) {
@@ -329,68 +317,6 @@ async function claimTrustedFormAndUpdateLead({
   }
 }
 
-function isSequential(digits: string) {
-  return digits === "0123456789" || digits === "1234567890" || digits === "9876543210";
-}
-
-function isRepeatingPattern(digits: string) {
-  return /^(\d)\1{9}$/.test(digits) || /^(\d{2})\1{4}$/.test(digits) || /^(\d{5})\1$/.test(digits);
-}
-
-function validateUsPhone(value: unknown): PhoneValidationResult {
-  const normalized = normalizeUsPhone(value);
-  const flags: string[] = [];
-
-  if (normalized.length !== 10) {
-    return {
-      isValid: false,
-      normalized,
-      flags: ["invalid_length"],
-      reason: "Ingresa un numero valido de EE.UU. con 10 digitos.",
-    };
-  }
-
-  const areaCode = normalized.slice(0, 3);
-  const exchange = normalized.slice(3, 6);
-
-  if (!/^[2-9]\d{2}[2-9]\d{6}$/.test(normalized)) {
-    return {
-      isValid: false,
-      normalized,
-      flags: ["invalid_nanp"],
-      reason: "Ingresa un numero movil o residencial valido de EE.UU.",
-    };
-  }
-
-  if (areaCode.endsWith("11") || exchange.endsWith("11")) {
-    flags.push("service_code_pattern");
-  }
-
-  if (areaCode === "555" || exchange === "555") {
-    flags.push("fictional_555");
-  }
-
-  if (isSequential(normalized)) {
-    flags.push("sequential_digits");
-  }
-
-  if (isRepeatingPattern(normalized)) {
-    flags.push("repeating_digits");
-  }
-
-  const zeroCount = normalized.split("").filter((digit) => digit === "0").length;
-  if (zeroCount >= 7) {
-    flags.push("too_many_zeros");
-  }
-
-  const tail = normalized.slice(4);
-  if (/^12345|23456|34567|45678|56789|67890$/.test(tail)) {
-    flags.push("synthetic_tail");
-  }
-
-  return { isValid: true, normalized, flags };
-}
-
 export async function POST(request: Request) {
   if (!isAllowedOrigin(request) || !hasValidLeadToken(request)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
@@ -416,7 +342,11 @@ export async function POST(request: Request) {
     ipAddress(request) ||
     request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
     "unknown";
-  const phoneValidation = validateUsPhone(body.answers.phoneNumber);
+  const phoneValidation = validateLeadPhoneVerification({
+    phone: body.answers.phoneNumber,
+    verificationToken: body.meta?.phoneVerificationToken,
+    verification: body.meta?.phoneVerification,
+  });
   const deviceId = String(body.meta?.deviceId || getRequestCookie(request, deviceCookieName)).trim();
   const trustedFormCertUrl = normalizeString(body.meta?.trustedFormCertUrl);
   const adaccountName = normalizeString(body.meta?.adaccountName);
@@ -446,7 +376,7 @@ export async function POST(request: Request) {
   if (!phoneValidation.isValid) {
     return NextResponse.json(
       {
-        error: phoneValidation.reason || "Ingresa un numero valido de EE.UU.",
+        error: "No pudimos confirmar la verificación del teléfono.",
         riskFlags,
       },
       { status: 422 }
@@ -490,6 +420,10 @@ export async function POST(request: Request) {
     phoneNumber: phoneValidation.normalized,
     validation: {
       phoneCountry: "US",
+      phoneProvider: "veriphone",
+      phoneType: phoneValidation.evidence?.phoneType,
+      phoneCarrier: phoneValidation.evidence?.carrier,
+      phoneRegion: phoneValidation.evidence?.phoneRegion,
       duplicatePhoneCount,
       ipVelocityCount,
       deviceVelocityCount,
@@ -577,4 +511,3 @@ export async function POST(request: Request) {
   response.cookies.delete(leadTokenCookieName);
   return response;
 }
-

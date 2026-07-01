@@ -6,7 +6,7 @@ import { useEffect, useRef, useState } from "react";
 import PopUp1 from "@/components/pop-up1";
 import { buildApplicationNumber } from "@/lib/application-number";
 import { createEventId, getUtmParams, pushGtmEvent, trackVercelIulV4VirtualPage } from "@/lib/gtm-events";
-import { inferUsZipFromStateAndPhone } from "@/lib/infer-us-zip";
+import { formatUsPhone, normalizeUsPhone } from "@/lib/phone";
 
 const questionnaireSecuritySeals = [
   {
@@ -155,6 +155,26 @@ type FunnelAnswers = {
 
 type PhoneValidationStatus = "idle" | "validating" | "valid" | "invalid";
 
+type PhoneVerificationEvidence = {
+  normalized: string;
+  phoneValid: true;
+  phoneType: "mobile" | "fixed_line" | "fixed_line_or_mobile";
+  carrier: string;
+  countryCode: string;
+  country: string;
+  e164: string;
+  phoneRegion: string;
+};
+
+type PhoneVerifyResponse = {
+  ok?: boolean;
+  normalized?: string;
+  reason?: string | null;
+  flags?: string[];
+  veriphone?: PhoneVerificationEvidence | null;
+  verificationToken?: string | null;
+};
+
 type ZipLookupResponse = {
   location?: string | null;
   state?: string | null;
@@ -291,26 +311,11 @@ const thankYouFaqs = [
 ];
 
 function formatPhoneDigits(value: string) {
-  const digits = normalizeUsPhoneInput(value);
-  const chunks = [];
-  if (digits.length > 0) chunks.push(digits.slice(0, 3));
-  if (digits.length > 3) chunks.push(digits.slice(3, 6));
-  if (digits.length > 6) chunks.push(digits.slice(6, 10));
-  return chunks.join(" ");
+  return formatUsPhone(value);
 }
 
 function normalizeUsPhoneInput(value: string) {
-  const digits = value.replace(/\D/g, "");
-
-  if (digits.length === 11 && digits.startsWith("1")) {
-    return digits.slice(1);
-  }
-
-  if (digits.length > 10 && digits.startsWith("1")) {
-    return digits.slice(1, 11);
-  }
-
-  return digits.slice(0, 10);
+  return normalizeUsPhone(value);
 }
 
 function getOrCreateDeviceId() {
@@ -357,36 +362,6 @@ function setAgeRejectedCookie() {
   document.cookie = `${ageRejectedCookieName}=true; Max-Age=${maxAge}; Path=/; SameSite=Lax`;
 }
 
-function getPhoneValidationMessage(value: string) {
-  const digits = normalizeUsPhoneInput(value);
-
-  if (digits.length !== 10) {
-    return "Ingresa un número válido de EE.UU. con 10 dígitos.";
-  }
-
-  if (!/^[2-9]\d{2}[2-9]\d{6}$/.test(digits)) {
-    return "Ingresa un número real de EE.UU.";
-  }
-
-  return "";
-
-  if (
-    digits === "0123456789" ||
-    digits === "1234567890" ||
-    digits === "9876543210" ||
-    /^(\d)\1{9}$/.test(digits) ||
-    /^(\d{2})\1{4}$/.test(digits) ||
-    /^(\d{5})\1$/.test(digits) ||
-    digits.split("").filter((digit) => digit === "0").length >= 7 ||
-    digits.slice(0, 3) === "555" ||
-    digits.slice(3, 6) === "555"
-  ) {
-    return "Ingresa un número real de EE.UU. Evita secuencias o números de ejemplo.";
-  }
-
-  return "";
-}
-
 function isValidEmail(value: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
 }
@@ -408,7 +383,12 @@ function getZipValidationMessage(value: string) {
 function isResolvedUsZip(
   data: ZipLookupResponse | null,
   requestedZipCode: string
-) {
+): data is ZipLookupResponse & {
+  state: string;
+  zipCode: string;
+  source: "zippopotam";
+  fallback: false;
+} {
   return (
     !!data &&
     data.source === "zippopotam" &&
@@ -421,15 +401,6 @@ function isResolvedUsZip(
 
 function isBlockedState(state?: string | null) {
   return state === blockedStateName;
-}
-
-function buildLocationBackup(state?: string | null, phone?: string | null) {
-  const inferred = inferUsZipFromStateAndPhone(state, phone);
-  return {
-    zipCode: inferred.zipCode,
-    locationText: inferred.location,
-    state: inferred.state || state || "",
-  };
 }
 
 function optionButtonClass(isSelected: boolean, isRecommended = false) {
@@ -827,15 +798,17 @@ export default function Home() {
   const [panelKey, setPanelKey] = useState(0);
   const [isTransitioningOut, setIsTransitioningOut] = useState(false);
   const [answers, setAnswers] = useState<FunnelAnswers>(emptyAnswers);
-  const [defaultLocationText, setDefaultLocationText] = useState(emptyAnswers.locationText);
+  const defaultLocationText = emptyAnswers.locationText;
   const [isLookingUpZip, setIsLookingUpZip] = useState(false);
-  const [hasLoadedGeo, setHasLoadedGeo] = useState(false);
+  const [hasLoadedGeo] = useState(true);
   const [phoneError, setPhoneError] = useState("");
   const [emailError, setEmailError] = useState("");
   const [zipError, setZipError] = useState("");
   const [submitError, setSubmitError] = useState("");
   const [isSubmittingLead, setIsSubmittingLead] = useState(false);
-  const [isPhoneValidating, setIsPhoneValidating] = useState(false);
+  const [phoneValidationStatus, setPhoneValidationStatus] = useState<PhoneValidationStatus>("idle");
+  const [phoneVerificationToken, setPhoneVerificationToken] = useState("");
+  const [phoneVerification, setPhoneVerification] = useState<PhoneVerificationEvidence | null>(null);
   const [hasBlurredPhone, setHasBlurredPhone] = useState(false);
   const [leadToken, setLeadToken] = useState("");
   const [isPayPerCallPopupOpen, setIsPayPerCallPopupOpen] = useState(false);
@@ -846,6 +819,8 @@ export default function Home() {
   const [runtimeConfig, setRuntimeConfig] = useState<RuntimeConfig>(defaultRuntimeConfig);
   const transitionTimeoutRef = useRef<number | null>(null);
   const phoneValidationTimeoutRef = useRef<number | null>(null);
+  const phoneValidationRequestRef = useRef(0);
+  const phoneValidationAbortRef = useRef<AbortController | null>(null);
   const trackedStepsRef = useRef<Set<string>>(new Set());
   const trackedAutoZipRef = useRef(false);
   const submittedLeadRef = useRef(false);
@@ -858,11 +833,9 @@ export default function Home() {
   const successHash = "#gracias";
   const recommendedAgeOption = answers.ageGroup ? "" : "35 a 44";
   const recommendedGoalOption = answers.insuranceGoal ? "" : "Ahorrar e invertir";
-  const detectedUsState = stateOptions.includes(answers.detectedState)
-    ? answers.detectedState
-    : "";
+  const detectedUsState = "";
   const resolvedUsState = stateOptions.includes(answers.state) ? answers.state : "";
-  const shouldAskZipCode = !resolvedUsState && !detectedUsState;
+  const shouldAskZipCode = true;
   const visibleQuestionSteps = shouldAskZipCode
     ? (["age", "goal", "state", "name", "phone"] as FunnelStep[])
     : (["age", "goal", "name", "phone"] as FunnelStep[]);
@@ -880,17 +853,6 @@ export default function Home() {
     : "animate-[survey-question-in_0.42s_cubic-bezier(0.22,0.61,0.36,1)]";
 
   const normalizedPhone = normalizeUsPhoneInput(answers.phoneNumber);
-  const shouldShowPhoneValidation = normalizedPhone.length >= 10 || (hasBlurredPhone && normalizedPhone.length > 0);
-  const livePhoneValidationMessage = shouldShowPhoneValidation
-    ? getPhoneValidationMessage(normalizedPhone)
-    : "";
-  const phoneValidationStatus: PhoneValidationStatus = !shouldShowPhoneValidation
-    ? "idle"
-    : isPhoneValidating
-      ? "validating"
-      : livePhoneValidationMessage
-        ? "invalid"
-        : "valid";
   const phoneBorderClass =
     phoneValidationStatus === "invalid" || phoneError
       ? "border-[#e11d48] focus:border-[#e11d48]"
@@ -900,7 +862,7 @@ export default function Home() {
   const visiblePhoneError =
     phoneValidationStatus === "validating"
       ? ""
-      : phoneError || (phoneValidationStatus === "invalid" ? livePhoneValidationMessage : "");
+      : phoneError;
 
   function getGtmLeadPayload() {
     const location = answers.locationText || defaultLocationText || "";
@@ -985,6 +947,7 @@ export default function Home() {
       if (phoneValidationTimeoutRef.current !== null) {
         window.clearTimeout(phoneValidationTimeoutRef.current);
       }
+      phoneValidationAbortRef.current?.abort();
     };
   }, []);
 
@@ -993,19 +956,77 @@ export default function Home() {
       window.clearTimeout(phoneValidationTimeoutRef.current);
       phoneValidationTimeoutRef.current = null;
     }
+    phoneValidationAbortRef.current?.abort();
+    phoneValidationAbortRef.current = null;
+    const requestId = ++phoneValidationRequestRef.current;
+    setPhoneVerificationToken("");
+    setPhoneVerification(null);
 
-    if (!shouldShowPhoneValidation) {
-      setIsPhoneValidating(false);
-      setPhoneError("");
+    if (normalizedPhone.length !== 10) {
+      const shouldShowIncompleteError =
+        normalizedPhone.length > 10 || (hasBlurredPhone && normalizedPhone.length > 0);
+      setPhoneValidationStatus(shouldShowIncompleteError ? "invalid" : "idle");
+      setPhoneError(shouldShowIncompleteError ? "Ingresa un número contactable de 10 dígitos." : "");
       return;
     }
 
-    setIsPhoneValidating(true);
-    phoneValidationTimeoutRef.current = window.setTimeout(() => {
+    setPhoneValidationStatus("validating");
+    setPhoneError("");
+    phoneValidationTimeoutRef.current = window.setTimeout(async () => {
       phoneValidationTimeoutRef.current = null;
-      setIsPhoneValidating(false);
-      setPhoneError(getPhoneValidationMessage(normalizedPhone));
-    }, 420);
+      const controller = new AbortController();
+      phoneValidationAbortRef.current = controller;
+      pushGtmEvent("phone_verification_started", { funnel_id: "iul-v4" });
+
+      try {
+        const response = await fetch("/api/phone-verify", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ phone: normalizedPhone }),
+          cache: "no-store",
+          signal: controller.signal,
+        });
+        const result = (await response.json().catch(() => null)) as PhoneVerifyResponse | null;
+
+        if (requestId !== phoneValidationRequestRef.current || controller.signal.aborted) return;
+
+        if (
+          response.ok &&
+          result?.ok === true &&
+          result.normalized === normalizedPhone &&
+          result.veriphone &&
+          result.verificationToken
+        ) {
+          setPhoneValidationStatus("valid");
+          setPhoneVerification(result.veriphone);
+          setPhoneVerificationToken(result.verificationToken);
+          setPhoneError("");
+          pushGtmEvent("phone_verification_passed", {
+            funnel_id: "iul-v4",
+            phone_type: result.veriphone.phoneType,
+            carrier: result.veriphone.carrier,
+            country_code: result.veriphone.countryCode,
+          });
+          return;
+        }
+
+        const reason = result?.reason || "No pudimos verificar el número ahora mismo. Intenta nuevamente.";
+        setPhoneValidationStatus("invalid");
+        setPhoneError(reason);
+        pushGtmEvent("phone_verification_failed", {
+          funnel_id: "iul-v4",
+          validation_reason: result?.flags?.join(",") || "request_failed",
+        });
+      } catch (error) {
+        if ((error as Error).name === "AbortError" || requestId !== phoneValidationRequestRef.current) return;
+        setPhoneValidationStatus("invalid");
+        setPhoneError("No pudimos verificar el número ahora mismo. Intenta nuevamente.");
+        pushGtmEvent("phone_verification_failed", {
+          funnel_id: "iul-v4",
+          validation_reason: "request_failed",
+        });
+      }
+    }, 350);
 
     return () => {
       if (phoneValidationTimeoutRef.current !== null) {
@@ -1013,7 +1034,7 @@ export default function Home() {
         phoneValidationTimeoutRef.current = null;
       }
     };
-  }, [normalizedPhone, shouldShowPhoneValidation]);
+  }, [hasBlurredPhone, normalizedPhone]);
 
   useEffect(() => {
     if (isRejectedPage || currentQuestionIndex < 0) return;
@@ -1059,57 +1080,6 @@ export default function Home() {
 
   useEffect(() => {
     if (isRejectedPage) return;
-
-    let isCancelled = false;
-
-    async function hydrateAreaFromIp() {
-      try {
-        const response = await fetch("/api/location", { cache: "no-store" });
-        if (!response.ok) return;
-
-        const data = (await response.json()) as {
-          location?: string;
-          zipCode?: string | null;
-          state?: string | null;
-        };
-
-        if (isCancelled || !data.location) return;
-
-        const detectedState = data.state && stateOptions.includes(data.state) ? data.state : "";
-        const detectedZip = data.zipCode && /^\d{5}$/.test(data.zipCode) ? data.zipCode : "";
-        const backup = detectedState ? buildLocationBackup(detectedState) : null;
-        const resolvedZipCode = detectedZip || backup?.zipCode || "";
-        const resolvedLocationText = data.location || backup?.locationText || emptyAnswers.locationText;
-
-        if (isBlockedState(detectedState)) {
-          rejectByNewYork();
-          return;
-        }
-
-        setDefaultLocationText((prev) => prev || resolvedLocationText);
-        setAnswers((prev) => ({
-          ...prev,
-          zipCode: prev.zipCode || resolvedZipCode,
-          locationText: prev.locationText || resolvedLocationText,
-          state: prev.state || detectedState || backup?.state || "",
-          detectedState: prev.detectedState || detectedState,
-        }));
-      } catch {
-        // The ZIP step is the fallback if Vercel geolocation is unavailable.
-      } finally {
-        if (!isCancelled) setHasLoadedGeo(true);
-      }
-    }
-
-    void hydrateAreaFromIp();
-
-    return () => {
-      isCancelled = true;
-    };
-  }, [isRejectedPage]);
-
-  useEffect(() => {
-    if (isRejectedPage) return;
     if (!hasLoadedGeo) return;
 
     const zipCode = answers.zipCode;
@@ -1135,7 +1105,7 @@ export default function Home() {
       try {
         setIsLookingUpZip(true);
 
-        const response = await fetch(`/api/zip/${zipCode}`, {
+        const response = await fetch(`/api/zip/${zipCode}?strict=zippopotam`, {
           signal: controller.signal,
           cache: "no-store",
         });
@@ -1404,7 +1374,7 @@ export default function Home() {
     setIsLookingUpZip(true);
 
     try {
-      const response = await fetch(`/api/zip/${zipCode}`, {
+      const response = await fetch(`/api/zip/${zipCode}?strict=zippopotam`, {
         cache: "no-store",
       });
 
@@ -1494,9 +1464,17 @@ export default function Home() {
 
     if (!answers.firstName.trim() || !answers.lastName.trim()) return;
 
-    const phoneValidationMessage = getPhoneValidationMessage(normalizedPhone);
-    if (phoneValidationMessage) {
-      setPhoneError(phoneValidationMessage);
+    if (
+      phoneValidationStatus !== "valid" ||
+      !phoneVerification ||
+      !phoneVerificationToken ||
+      phoneVerification.normalized !== normalizedPhone
+    ) {
+      setPhoneError(
+        phoneValidationStatus === "validating"
+          ? "Espera mientras verificamos tu número."
+          : "Ingresa un número móvil o fijo contactable.",
+      );
       return;
     }
 
@@ -1528,72 +1506,34 @@ export default function Home() {
     setIsSubmittingLead(true);
 
     try {
-      let resolvedZipCode = answers.zipCode;
-      let resolvedLocationText = answers.locationText || defaultLocationText;
-      let resolvedState = answers.state || answers.detectedState;
+      const resolvedZipCode = normalizeZipCode(answers.zipCode);
+      const zipResponse = await fetch(`/api/zip/${resolvedZipCode}?strict=zippopotam`, {
+        cache: "no-store",
+      });
+      const zipData = zipResponse.ok
+        ? ((await zipResponse.json()) as ZipLookupResponse)
+        : null;
 
-      if (!resolvedState || !resolvedZipCode || !resolvedLocationText) {
-        try {
-          const locationResponse = await fetch("/api/location", { cache: "no-store" });
-
-          if (locationResponse.ok) {
-            const locationData = (await locationResponse.json()) as {
-              location?: string;
-              zipCode?: string | null;
-              state?: string | null;
-            };
-
-            if (!resolvedState && locationData.state && stateOptions.includes(locationData.state)) {
-              resolvedState = locationData.state;
-            }
-
-            if (!resolvedZipCode && locationData.zipCode && /^\d{5}$/.test(locationData.zipCode)) {
-              resolvedZipCode = locationData.zipCode;
-            }
-
-            if (!resolvedLocationText && locationData.location) {
-              resolvedLocationText = locationData.location;
-            }
-          }
-        } catch {
-          // Continue to deterministic backups below.
-        }
-      }
-
-      if (resolvedState && (!resolvedZipCode || !resolvedLocationText)) {
-        const backup = buildLocationBackup(resolvedState, normalizedPhone);
-        resolvedZipCode = resolvedZipCode || backup.zipCode;
-        resolvedLocationText = resolvedLocationText || backup.locationText;
-        resolvedState = resolvedState || backup.state;
-      }
-
-      if (resolvedZipCode && (!resolvedState || !resolvedLocationText)) {
-        try {
-          const zipResponse = await fetch(`/api/zip/${resolvedZipCode}`, { cache: "no-store" });
-          if (zipResponse.ok) {
-            const zipData = (await zipResponse.json()) as ZipLookupResponse;
-            if (isResolvedUsZip(zipData, resolvedZipCode)) {
-              resolvedState = resolvedState || zipData.state || "";
-              resolvedLocationText = resolvedLocationText || zipData.location || "";
-            }
-          }
-        } catch {
-          // Keep any already resolved backup values.
-        }
-      }
-
-      if (!resolvedState || !resolvedZipCode || !resolvedLocationText) {
-        setSubmitError("Necesitamos confirmar tu estado para completar la solicitud.");
+      if (!isResolvedUsZip(zipData, resolvedZipCode)) {
+        setSubmitError("Necesitamos confirmar un ZIP code real para completar la solicitud.");
         transitionTo("state", "backward");
         return;
       }
+
+      if (isBlockedState(zipData.state)) {
+        rejectByNewYork();
+        return;
+      }
+
+      const resolvedState = zipData.state || "";
+      const resolvedLocationText = zipData.location || "";
 
       const completedAnswers = {
         ...answers,
         zipCode: resolvedZipCode,
         locationText: resolvedLocationText,
         state: resolvedState,
-        detectedState: answers.detectedState || resolvedState,
+        detectedState: resolvedState,
       };
       const hasCompleteLeadData = [
         completedAnswers.ageGroup,
@@ -1653,6 +1593,8 @@ export default function Home() {
             salePath: shouldUsePayPerCallThankYou ? "call" : "lead",
             adaccountName,
             leadUrl: leadUrlRef.current || window.location.href,
+            phoneVerification,
+            phoneVerificationToken,
           },
         }),
       });
@@ -2288,15 +2230,26 @@ export default function Home() {
                     name="tel"
                     value={formatPhoneDigits(answers.phoneNumber)}
                     onChange={(event) => {
+                      phoneValidationRequestRef.current += 1;
+                      phoneValidationAbortRef.current?.abort();
+                      if (phoneValidationTimeoutRef.current !== null) {
+                        window.clearTimeout(phoneValidationTimeoutRef.current);
+                        phoneValidationTimeoutRef.current = null;
+                      }
                       setAnswers((prev) => ({
                         ...prev,
                         phoneNumber: normalizeUsPhoneInput(event.target.value),
                       }));
                       setHasBlurredPhone(false);
+                      setPhoneValidationStatus("idle");
+                      setPhoneVerification(null);
+                      setPhoneVerificationToken("");
                       setPhoneError("");
                     }}
                     onInput={(event) => {
                       const nextPhone = normalizeUsPhoneInput(event.currentTarget.value);
+                      phoneValidationRequestRef.current += 1;
+                      phoneValidationAbortRef.current?.abort();
                       if (nextPhone !== answers.phoneNumber) {
                         setAnswers((prev) => ({
                           ...prev,
@@ -2304,14 +2257,21 @@ export default function Home() {
                         }));
                       }
                       setHasBlurredPhone(false);
+                      setPhoneValidationStatus("idle");
+                      setPhoneVerification(null);
+                      setPhoneVerificationToken("");
                       setPhoneError("");
                     }}
-                    onBlur={() => setHasBlurredPhone(true)}
+                    onBlur={() => {
+                      if (normalizedPhone.length !== 10) setHasBlurredPhone(true);
+                    }}
                     placeholder="000 000 0000"
                     inputMode="tel"
                     autoComplete="tel"
                     enterKeyHint="next"
                     aria-invalid={phoneValidationStatus === "invalid" || !!phoneError}
+                    aria-describedby="phone-validation-message"
+                    aria-busy={phoneValidationStatus === "validating"}
                     className={`h-[58px] w-full rounded-[16px] border bg-white px-5 pr-12 text-[17px] text-[#101820] outline-none transition ${phoneBorderClass}`}
                   />
                   {phoneValidationStatus !== "idle" ? (
@@ -2347,7 +2307,11 @@ export default function Home() {
                 />
               </div>
 
-              <p className="min-h-[22px] text-[14px] text-[#d14c4c]">
+              <p
+                id="phone-validation-message"
+                className="min-h-[22px] text-[14px] text-[#d14c4c]"
+                role={phoneValidationStatus === "invalid" ? "alert" : undefined}
+              >
                 {visiblePhoneError}
               </p>
 
@@ -2359,7 +2323,7 @@ export default function Home() {
                 type="submit"
                 name="submit-lead"
                 data-tf-element-role="submit"
-                disabled={isSubmittingLead}
+                disabled={isSubmittingLead || phoneValidationStatus !== "valid"}
                 className="inline-flex h-[54px] items-center justify-center gap-2 rounded-full bg-[var(--brand)] px-6 text-[18px] font-semibold text-white transition disabled:cursor-wait disabled:opacity-70 hover:bg-[var(--brand-dark)]"
               >
                 <span>Ver mi cotización ahora</span>

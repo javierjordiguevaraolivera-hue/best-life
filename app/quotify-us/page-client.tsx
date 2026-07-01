@@ -4,7 +4,7 @@ import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import PopUp1 from "@/components/pop-up1";
 import { buildApplicationNumber } from "@/lib/application-number";
-import { getDetectedZipCode } from "@/lib/quotify-us";
+import { formatUsPhone, normalizeUsPhone } from "@/lib/phone";
 
 const ageOptions = ["25 a 34", "35 a 44", "45 a 50", "50 a 55"];
 const goalOptions = ["Seguro de vida", "Ahorrar e invertir", "Planificación de retiro", "No estoy seguro aún"];
@@ -35,12 +35,37 @@ type Answers = {
   queryParams: Record<string, string>;
   queryParamsAll: Record<string, string[]>;
 };
-type LocationResponse = { location?: string; state?: string | null; zipCode?: string | null };
+type LocationResponse = {
+  location?: string;
+  state?: string | null;
+  zipCode?: string | null;
+  source?: "zippopotam" | "vercel-ip" | "fallback";
+  fallback?: boolean;
+};
 type LeadSubmitResponse = {
   ok?: boolean;
   saved?: boolean;
   leadId?: string | null;
   error?: string;
+};
+type PhoneValidationStatus = "idle" | "validating" | "valid" | "invalid";
+type PhoneVerificationEvidence = {
+  normalized: string;
+  phoneValid: true;
+  phoneType: "mobile" | "fixed_line" | "fixed_line_or_mobile";
+  carrier: string;
+  countryCode: string;
+  country: string;
+  e164: string;
+  phoneRegion: string;
+};
+type PhoneVerifyResponse = {
+  ok?: boolean;
+  normalized?: string;
+  reason?: string | null;
+  flags?: string[];
+  veriphone?: PhoneVerificationEvidence | null;
+  verificationToken?: string | null;
 };
 type RuntimeConfig = {
   payPerCallStatus: string;
@@ -118,11 +143,23 @@ function normalizeZip(value: string) {
   return value.replace(/\D/g, "").slice(0, 5);
 }
 
-function normalizePhone(value: string) {
-  const digits = value.replace(/\D/g, "");
-  if (!digits) return "";
-  if (digits.startsWith("1")) return digits.slice(1, 11);
-  return digits.slice(0, 10);
+function isResolvedUsZip(
+  data: LocationResponse | null,
+  requestedZipCode: string,
+): data is LocationResponse & {
+  state: string;
+  zipCode: string;
+  source: "zippopotam";
+  fallback: false;
+} {
+  return (
+    !!data &&
+    data.source === "zippopotam" &&
+    data.fallback === false &&
+    data.zipCode === requestedZipCode &&
+    !!data.state &&
+    stateOptions.includes(data.state)
+  );
 }
 
 function extractCity(locationText: string) {
@@ -134,49 +171,7 @@ function extractCity(locationText: string) {
 }
 
 function formatPhone(value: string) {
-  const digits = normalizePhone(value);
-  if (digits.length <= 3) return digits;
-  if (digits.length <= 6) return `${digits.slice(0, 3)} ${digits.slice(3)}`;
-  return `${digits.slice(0, 3)} ${digits.slice(3, 6)} ${digits.slice(6)}`;
-}
-
-function phoneErrorMessage(value: string) {
-  const digits = normalizePhone(value);
-  if (digits.length !== 10) return "Por favor, ingresa un número de teléfono válido.";
-
-  const areaCode = digits.slice(0, 3);
-  const exchangeCode = digits.slice(3, 6);
-  const lineNumber = digits.slice(6);
-  const uniqueDigits = new Set(digits).size;
-
-  if (!/^[2-9]\d{2}[2-9]\d{6}$/.test(digits)) return "Por favor, ingresa un número registrado.";
-
-  if (
-    digits === "0123456789" ||
-    digits === "1234567890" ||
-    digits === "0987654321" ||
-    digits === "9876543210" ||
-    digits === "1122334455" ||
-    digits === "1212121212" ||
-    digits === "1231231234" ||
-    digits === "1234512345" ||
-    /^(\d)\1{9}$/.test(digits) ||
-    /^(\d{2})\1{4}$/.test(digits) ||
-    /^(\d{5})\1$/.test(digits) ||
-    uniqueDigits < 4 ||
-    areaCode === "555" ||
-    exchangeCode === "555" ||
-    areaCode === "000" ||
-    exchangeCode === "000" ||
-    lineNumber === "0000" ||
-    /^[2-9]11$/.test(areaCode) ||
-    /^[2-9]11$/.test(exchangeCode) ||
-    /^(\d)\1{3}$/.test(lineNumber)
-  ) {
-    return "Por favor, ingresa un número registrado.";
-  }
-
-  return "";
+  return formatUsPhone(value);
 }
 
 function validEmail(value: string) {
@@ -233,7 +228,7 @@ function getOrCreateDeviceId() {
 
 function normalizeHashValue(value: string, mode: "text" | "email" | "phone" | "zip" = "text") {
   if (mode === "email") return value.trim().toLowerCase();
-  if (mode === "phone") return normalizePhone(value);
+  if (mode === "phone") return normalizeUsPhone(value);
   if (mode === "zip") return normalizeZip(value);
   return value.trim().toLowerCase();
 }
@@ -306,47 +301,19 @@ function pushToDataLayer(eventPayload: Record<string, unknown>) {
 }
 
 async function resolveLocationSnapshot(currentAnswers: Answers) {
-  let resolvedZipCode = normalizeZip(currentAnswers.zipCode);
-  let resolvedLocationText = currentAnswers.locationText.trim();
-  let resolvedState = (currentAnswers.state || currentAnswers.detectedState).trim();
-  let resolvedDetectedState = currentAnswers.detectedState.trim();
+  const resolvedZipCode = normalizeZip(currentAnswers.zipCode);
+  const response = await fetch(`/api/zip/${resolvedZipCode}?strict=zippopotam`, {
+    cache: "no-store",
+  });
+  const data = response.ok ? ((await response.json()) as LocationResponse) : null;
 
-  if (!resolvedZipCode || !resolvedLocationText || !resolvedState) {
-    try {
-      const locationResponse = await fetch("/api/location", { cache: "no-store" });
-
-      if (locationResponse.ok) {
-        const locationData = (await locationResponse.json()) as {
-          location?: string;
-          zipCode?: string | null;
-          state?: string | null;
-        };
-
-        resolvedLocationText = resolvedLocationText || String(locationData.location || "");
-        resolvedState = resolvedState || String(locationData.state || "");
-        resolvedDetectedState = resolvedDetectedState || String(locationData.state || "");
-        resolvedZipCode = getDetectedZipCode({
-          explicitZip: resolvedZipCode,
-          geoZip: locationData.zipCode || null,
-          state: resolvedState || resolvedDetectedState,
-        });
-      }
-    } catch {
-      resolvedZipCode = getDetectedZipCode({
-        explicitZip: resolvedZipCode,
-        geoZip: null,
-        state: resolvedState || resolvedDetectedState,
-      });
-    }
+  if (!isResolvedUsZip(data, resolvedZipCode)) {
+    throw new Error("Necesitamos confirmar un ZIP code real para completar la solicitud.");
   }
 
-  if (!resolvedZipCode) {
-    resolvedZipCode = getDetectedZipCode({
-      explicitZip: currentAnswers.zipCode,
-      geoZip: null,
-      state: resolvedState || resolvedDetectedState,
-    });
-  }
+  const resolvedLocationText = data.location || "";
+  const resolvedState = data.state || "";
+  const resolvedDetectedState = resolvedState;
 
   return {
     resolvedZipCode,
@@ -368,14 +335,6 @@ function Progress({ filled, total, label }: { filled: number; total: number; lab
       <p className="text-center text-[15px] text-[#111827]">{label}</p>
     </div>
   );
-}
-
-function formatDetectedRegion(locationText: string, detectedState: string, fallbackCity?: string) {
-  if (fallbackCity) return `${fallbackCity} region`;
-  const primary = locationText.split(",")[0]?.trim();
-  if (primary && !/rates available/i.test(primary)) return primary;
-  if (detectedState) return detectedState;
-  return "Ubicación detectada";
 }
 
 function HandDialIcon() {
@@ -472,9 +431,13 @@ export default function QuotifyUsPageClient() {
   const pathname = usePathname();
   const [step, setStep] = useState<Step>("age");
   const [answers, setAnswers] = useState<Answers>(emptyAnswers);
-  const [locationStatus, setLocationStatus] = useState<"loading" | "ready" | "fallback">("loading");
+  const [isLookingUpZip, setIsLookingUpZip] = useState(false);
   const [zipError, setZipError] = useState("");
   const [phoneError, setPhoneError] = useState("");
+  const [phoneValidationStatus, setPhoneValidationStatus] = useState<PhoneValidationStatus>("idle");
+  const [phoneVerificationToken, setPhoneVerificationToken] = useState("");
+  const [phoneVerification, setPhoneVerification] = useState<PhoneVerificationEvidence | null>(null);
+  const [hasBlurredPhone, setHasBlurredPhone] = useState(false);
   const [emailError, setEmailError] = useState("");
   const [submitError, setSubmitError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -482,14 +445,16 @@ export default function QuotifyUsPageClient() {
   const [runtimeConfig, setRuntimeConfig] = useState<RuntimeConfig>(defaultRuntimeConfig);
   const [submittedContinueUrl, setSubmittedContinueUrl] = useState("/thanks/call2");
   const [submittedLeadId, setSubmittedLeadId] = useState("");
-  const zipLookupRef = useRef<number | null>(null);
   const leadUrlRef = useRef("");
   const runtimeConfigRef = useRef<RuntimeConfig>(defaultRuntimeConfig);
+  const phoneValidationTimeoutRef = useRef<number | null>(null);
+  const phoneValidationRequestRef = useRef(0);
+  const phoneValidationAbortRef = useRef<AbortController | null>(null);
   const page = pathname || "/quotify-us";
   const progress = progressMap[step];
   const displayName = answers.firstName.trim() || "amigo";
-  const selectedState = answers.state || answers.detectedState;
   const detectedCity = extractCity(answers.locationText || answers.userCityState);
+  const normalizedPhone = normalizeUsPhone(answers.phoneNumber);
 
   useEffect(() => {
     leadUrlRef.current = window.location.href;
@@ -545,8 +510,20 @@ export default function QuotifyUsPageClient() {
       const saved = window.localStorage.getItem(storageKey);
       if (!saved) return;
       const parsed = JSON.parse(saved) as { answers?: Partial<Answers>; step?: Step };
-      if (parsed.answers) setAnswers((prev) => ({ ...prev, ...parsed.answers }));
-      if (parsed.step && steps.includes(parsed.step)) setStep(parsed.step);
+      if (parsed.answers) {
+        setAnswers((prev) => ({
+          ...prev,
+          ...parsed.answers,
+          state: "",
+          detectedState: "",
+          zipCode: "",
+          locationText: "",
+          userCityState: "",
+        }));
+      }
+      if (parsed.step && steps.includes(parsed.step)) {
+        setStep(["name", "phone", "email"].includes(parsed.step) ? "location" : parsed.step);
+      }
     } catch {}
   }, []);
 
@@ -566,42 +543,165 @@ export default function QuotifyUsPageClient() {
   }, []);
 
   useEffect(() => {
-    let cancelled = false;
-    async function loadLocation() {
-      try {
-        const response = await fetch("/api/location", { cache: "no-store" });
-        if (!response.ok) throw new Error("location_failed");
-        const data = (await response.json()) as LocationResponse;
-        if (cancelled) return;
-        setAnswers((prev) => ({ ...prev, detectedState: prev.detectedState || data.state || "", state: prev.state || data.state || "", zipCode: prev.zipCode || (data.zipCode ?? ""), locationText: prev.locationText || data.location || "", userCityState: prev.userCityState || data.location || "" }));
-        setLocationStatus(data.location ? "ready" : "fallback");
-      } catch {
-        if (!cancelled) setLocationStatus("fallback");
-      }
-    }
-    void loadLocation();
-    return () => { cancelled = true; };
-  }, []);
-
-  useEffect(() => {
     window.scrollTo({ top: 0, behavior: "smooth" });
   }, [step]);
 
   useEffect(() => {
-    if (zipLookupRef.current !== null) window.clearTimeout(zipLookupRef.current);
-    if (answers.zipCode.length !== 5) return;
-    zipLookupRef.current = window.setTimeout(async () => {
+    return () => {
+      if (phoneValidationTimeoutRef.current !== null) {
+        window.clearTimeout(phoneValidationTimeoutRef.current);
+      }
+      phoneValidationAbortRef.current?.abort();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (step !== "phone") return;
+
+    if (phoneValidationTimeoutRef.current !== null) {
+      window.clearTimeout(phoneValidationTimeoutRef.current);
+      phoneValidationTimeoutRef.current = null;
+    }
+    phoneValidationAbortRef.current?.abort();
+    phoneValidationAbortRef.current = null;
+    const requestId = ++phoneValidationRequestRef.current;
+    setPhoneVerificationToken("");
+    setPhoneVerification(null);
+
+    if (normalizedPhone.length !== 10) {
+      const shouldShowIncompleteError =
+        normalizedPhone.length > 10 || (hasBlurredPhone && normalizedPhone.length > 0);
+      setPhoneValidationStatus(shouldShowIncompleteError ? "invalid" : "idle");
+      setPhoneError(shouldShowIncompleteError ? "Ingresa un número contactable de 10 dígitos." : "");
+      return;
+    }
+
+    setPhoneValidationStatus("validating");
+    setPhoneError("");
+    phoneValidationTimeoutRef.current = window.setTimeout(async () => {
+      phoneValidationTimeoutRef.current = null;
+      const controller = new AbortController();
+      phoneValidationAbortRef.current = controller;
+      pushToDataLayer({ event: "phone_verification_started", funnel_id: "quotify-us" });
+
       try {
-        const response = await fetch(`/api/zip/${answers.zipCode}`, { cache: "no-store" });
-        if (!response.ok) return;
-        const data = (await response.json()) as LocationResponse;
-        setAnswers((prev) => ({ ...prev, state: data.state || prev.state || prev.detectedState, locationText: data.location || prev.locationText, userCityState: data.location || prev.userCityState }));
-      } catch {}
-    }, 220);
-    return () => { if (zipLookupRef.current !== null) window.clearTimeout(zipLookupRef.current); };
-  }, [answers.zipCode]);
+        const response = await fetch("/api/phone-verify", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ phone: normalizedPhone }),
+          cache: "no-store",
+          signal: controller.signal,
+        });
+        const result = (await response.json().catch(() => null)) as PhoneVerifyResponse | null;
+
+        if (requestId !== phoneValidationRequestRef.current || controller.signal.aborted) return;
+
+        if (
+          response.ok &&
+          result?.ok === true &&
+          result.normalized === normalizedPhone &&
+          result.veriphone &&
+          result.verificationToken
+        ) {
+          setPhoneValidationStatus("valid");
+          setPhoneVerification(result.veriphone);
+          setPhoneVerificationToken(result.verificationToken);
+          setPhoneError("");
+          pushToDataLayer({
+            event: "phone_verification_passed",
+            funnel_id: "quotify-us",
+            phone_type: result.veriphone.phoneType,
+            carrier: result.veriphone.carrier,
+            country_code: result.veriphone.countryCode,
+          });
+          return;
+        }
+
+        setPhoneValidationStatus("invalid");
+        setPhoneError(result?.reason || "No pudimos verificar el número ahora mismo. Intenta nuevamente.");
+        pushToDataLayer({
+          event: "phone_verification_failed",
+          funnel_id: "quotify-us",
+          validation_reason: result?.flags?.join(",") || "request_failed",
+        });
+      } catch (error) {
+        if ((error as Error).name === "AbortError" || requestId !== phoneValidationRequestRef.current) return;
+        setPhoneValidationStatus("invalid");
+        setPhoneError("No pudimos verificar el número ahora mismo. Intenta nuevamente.");
+        pushToDataLayer({
+          event: "phone_verification_failed",
+          funnel_id: "quotify-us",
+          validation_reason: "request_failed",
+        });
+      }
+    }, 350);
+
+    return () => {
+      if (phoneValidationTimeoutRef.current !== null) {
+        window.clearTimeout(phoneValidationTimeoutRef.current);
+        phoneValidationTimeoutRef.current = null;
+      }
+    };
+  }, [hasBlurredPhone, normalizedPhone, step]);
+
+  async function handleZipCodeContinue() {
+    const zipCode = normalizeZip(answers.zipCode);
+
+    if (zipCode.length !== 5) {
+      setZipError("Ingresa un ZIP code válido de EE.UU. con 5 dígitos.");
+      return;
+    }
+
+    setZipError("");
+    setIsLookingUpZip(true);
+
+    try {
+      const response = await fetch(`/api/zip/${zipCode}?strict=zippopotam`, {
+        cache: "no-store",
+      });
+      const data = response.ok ? ((await response.json()) as LocationResponse) : null;
+
+      if (!isResolvedUsZip(data, zipCode)) {
+        throw new Error("Ingresa un ZIP code real de EE.UU.");
+      }
+
+      const state = data.state || "";
+      const locationText = data.location || "";
+      setAnswers((prev) => ({
+        ...prev,
+        zipCode,
+        state,
+        detectedState: state,
+        locationText,
+        userCityState: locationText,
+      }));
+      setStep("name");
+    } catch (error) {
+      setAnswers((prev) => ({
+        ...prev,
+        state: "",
+        detectedState: "",
+        locationText: "",
+        userCityState: "",
+      }));
+      setZipError(error instanceof Error ? error.message : "No pudimos validar ese ZIP code.");
+    } finally {
+      setIsLookingUpZip(false);
+    }
+  }
 
   async function submit() {
+    if (
+      phoneValidationStatus !== "valid" ||
+      !phoneVerification ||
+      !phoneVerificationToken ||
+      phoneVerification.normalized !== normalizedPhone
+    ) {
+      setPhoneError("Ingresa un número móvil o fijo contactable.");
+      setStep("phone");
+      return;
+    }
+
     if (!validEmail(answers.email)) {
       setEmailError("Por favor ingresa un correo válido");
       return;
@@ -617,7 +717,6 @@ export default function QuotifyUsPageClient() {
     setIsSubmitting(true);
     try {
       const { resolvedZipCode, resolvedLocationText, resolvedState, resolvedDetectedState } = await resolveLocationSnapshot(answers);
-      const normalizedPhone = normalizePhone(answers.phoneNumber);
       const activeRuntimeConfig = runtimeConfigRef.current;
       const salePath = isPayPerCallWindowOpen(activeRuntimeConfig) ? "call" : "lead";
       const urlParams = new URLSearchParams(window.location.search);
@@ -667,6 +766,8 @@ export default function QuotifyUsPageClient() {
             salePath,
             adaccountName,
             leadUrl: leadUrlRef.current || window.location.href,
+            phoneVerification,
+            phoneVerificationToken,
           },
         }),
       });
@@ -837,41 +938,36 @@ export default function QuotifyUsPageClient() {
                   )}
                   <div className="mx-[2px] mt-5 border-t border-[#e5e7eb]" />
                   <div className="mt-5 text-center">
-                    <h2 className="font-['Poppins',sans-serif] text-[1.62rem] font-bold leading-[1.12] tracking-[-0.03em] text-[#111827]">Selecciona tu estado:</h2>
+                    <h2 className="font-['Poppins',sans-serif] text-[1.62rem] font-bold leading-[1.12] tracking-[-0.03em] text-[#111827]">¿Cuál es tu ZIP code?</h2>
                   </div>
-                  <div className={`mt-4 rounded-[14px] border-[2px] px-4 py-[18px] text-center ${locationStatus === "loading" ? "border-[#2196f3] bg-[#e3f2fd]" : answers.locationText ? "border-[#2991f4] bg-[#d8ebff]" : "border-[#f5d68f] bg-[#fff7e1]"}`}>
-                    {locationStatus === "loading" ? (
-                      <>
-                        <div className="text-[16px] text-[#1976d2]">🔍 Detectando tu ubicación...</div>
-                        <div className="mt-2 text-[12px] text-[#666]">Esto toma solo unos segundos</div>
-                      </>
-                    ) : answers.locationText ? (
-                      <>
-                        <div className="flex items-center justify-center gap-[10px] text-[#2168bf]">
-                          <span className="text-[22px] leading-none">🏠</span>
-                          <span className="font-['Poppins',sans-serif] text-[1.18rem] font-semibold tracking-[-0.02em]">{formatDetectedRegion(answers.locationText, selectedState || answers.detectedState, detectedCity)}</span>
-                        </div>
-                        <div className="mt-[7px]">
-                          <span className="inline-flex rounded-full bg-[#41b349] px-[9px] py-[3px] text-[9.5px] font-bold leading-none text-white">Detectado</span>
-                        </div>
-                      </>
-                    ) : (
-                      <>
-                        <div className="text-[15px] font-semibold text-[#9b6b00]">No pudimos detectar tu estado</div>
-                        <div className="mt-2 text-[13px] text-[#765628]">Selecciona tu estado manualmente para continuar.</div>
-                      </>
-                    )}
-                  </div>
-                  <div className="mt-8">
-                    <select value={selectedState} onChange={(e) => setAnswers((prev) => ({ ...prev, state: e.target.value }))} className="h-[46px] w-full rounded-[8px] border border-[#e6eaf0] bg-white px-[14px] text-[15px] text-[#111827] outline-none transition focus:border-[#1967d2]">
-                      <option value="">Cambiar estado...</option>
-                      {stateOptions.map((stateOption) => <option key={stateOption} value={stateOption}>{stateOption}</option>)}
-                    </select>
+                  <div className="mt-6">
+                    <input
+                      value={answers.zipCode}
+                      onChange={(event) => {
+                        const zipCode = normalizeZip(event.target.value);
+                        setAnswers((prev) => ({
+                          ...prev,
+                          zipCode,
+                          state: "",
+                          detectedState: "",
+                          locationText: "",
+                          userCityState: "",
+                        }));
+                        setZipError("");
+                      }}
+                      inputMode="numeric"
+                      autoComplete="postal-code"
+                      maxLength={5}
+                      placeholder="00000"
+                      aria-label="ZIP code"
+                      aria-invalid={!!zipError}
+                      className={`h-[64px] w-full rounded-[8px] border bg-white px-5 text-center text-[24px] font-semibold tracking-[0.18em] text-[#111827] outline-none transition placeholder:text-[#c6c9cf] ${zipError ? "border-[#ef4444]" : "border-[#dbe2ea] focus:border-[#1967d2]"}`}
+                    />
                   </div>
                   <p className="mt-3 min-h-[20px] text-center text-[13px] text-[#d92d20]">{zipError}</p>
-                  <button type="button" onClick={() => { if (!selectedState) return setZipError("Selecciona tu estado para continuar."); setZipError(""); setAnswers((prev) => ({ ...prev, state: prev.state || prev.detectedState, userCityState: prev.locationText || prev.userCityState })); setStep("name"); }} className="mt-[2px] inline-flex h-[56px] w-full items-center justify-center gap-[10px] rounded-[8px] bg-[#3a9be7] px-6 text-[17px] font-bold text-white transition hover:bg-[#3493dd]">
+                  <button type="button" onClick={() => void handleZipCodeContinue()} disabled={isLookingUpZip || normalizeZip(answers.zipCode).length !== 5} className="mt-[2px] inline-flex h-[56px] w-full items-center justify-center gap-[10px] rounded-[8px] bg-[#3a9be7] px-6 text-[17px] font-bold text-white transition hover:bg-[#3493dd] disabled:cursor-not-allowed disabled:opacity-60">
                     <span>✅</span>
-                    <span className="font-extrabold tracking-[-0.02em]">Confirmar ubicación</span>
+                    <span className="font-extrabold tracking-[-0.02em]">{isLookingUpZip ? "Validando ZIP code..." : "Confirmar ZIP code"}</span>
                     <svg viewBox="0 0 256 256" className="h-[17px] w-[17px]" fill="none">
                       <line x1="40" y1="128" x2="216" y2="128" stroke="currentColor" strokeWidth="24" strokeLinecap="round" strokeLinejoin="round" />
                       <polyline points="144 56 216 128 144 200" stroke="currentColor" strokeWidth="24" strokeLinecap="round" strokeLinejoin="round" />
@@ -932,27 +1028,59 @@ export default function QuotifyUsPageClient() {
                   <div className="mt-5 text-center">
                     <h2 className="mx-auto max-w-[392px] font-['Poppins',sans-serif] text-[1.72rem] font-bold leading-[1.16] tracking-[-0.04em] text-[#111827]">¿{displayName} a qué número te enviamos tu cotización personalizada?</h2>
                   </div>
-                  <div className={`mt-6 overflow-hidden rounded-[8px] border ${phoneError ? "border-[#ef4444]" : "border-[#dbe2ea]"}`}>
+                  <div className={`mt-6 overflow-hidden rounded-[8px] border ${phoneValidationStatus === "valid" ? "border-[#16a34a]" : phoneValidationStatus === "invalid" || phoneError ? "border-[#ef4444]" : "border-[#dbe2ea]"}`} aria-busy={phoneValidationStatus === "validating"}>
                     <div className="flex h-[54px] items-center bg-[#E9EAEC]">
-                      <div className={`flex h-full min-w-[76px] items-center gap-2 border-r px-3 text-[15px] font-semibold uppercase ${phoneError ? "border-[#ef4444] bg-[#E9EAEC] text-[#555]" : "border-[#dbe2ea] bg-[#E9EAEC] text-[#555]"}`}>
+                      <div className={`flex h-full min-w-[76px] items-center gap-2 border-r px-3 text-[15px] font-semibold uppercase ${phoneValidationStatus === "valid" ? "border-[#16a34a]" : phoneValidationStatus === "invalid" || phoneError ? "border-[#ef4444]" : "border-[#dbe2ea]"} bg-[#E9EAEC] text-[#555]`}>
                         <span>us</span>
                         <svg viewBox="0 0 24 24" className="h-[13px] w-[13px]" fill="none">
                           <path d="m6 9 6 6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                         </svg>
                       </div>
-                      <div className="flex min-w-0 flex-1 items-center bg-[#E9EAEC] px-4">
+                      <div className="relative flex min-w-0 flex-1 items-center bg-[#E9EAEC] px-4">
                         <span className="mr-2 text-[17px] text-[#c6c9cf]">+1</span>
-                        <input value={formatPhone(answers.phoneNumber)} onChange={(e) => { setAnswers((prev) => ({ ...prev, phoneNumber: e.target.value })); if (phoneError) setPhoneError(""); }} inputMode="tel" autoComplete="tel" placeholder="000 000 0000" className="h-full min-w-0 flex-1 bg-transparent text-[17px] text-[#111827] outline-none placeholder:text-[#c6c9cf]" />
+                        <input
+                          value={formatPhone(answers.phoneNumber)}
+                          onChange={(event) => {
+                            phoneValidationRequestRef.current += 1;
+                            phoneValidationAbortRef.current?.abort();
+                            if (phoneValidationTimeoutRef.current !== null) {
+                              window.clearTimeout(phoneValidationTimeoutRef.current);
+                              phoneValidationTimeoutRef.current = null;
+                            }
+                            setAnswers((prev) => ({ ...prev, phoneNumber: normalizeUsPhone(event.target.value) }));
+                            setHasBlurredPhone(false);
+                            setPhoneValidationStatus("idle");
+                            setPhoneVerification(null);
+                            setPhoneVerificationToken("");
+                            setPhoneError("");
+                          }}
+                          onBlur={() => {
+                            if (normalizedPhone.length !== 10) setHasBlurredPhone(true);
+                          }}
+                          inputMode="tel"
+                          autoComplete="tel"
+                          placeholder="000 000 0000"
+                          aria-invalid={phoneValidationStatus === "invalid" || !!phoneError}
+                          aria-describedby="quotify-phone-validation-message"
+                          className="h-full min-w-0 flex-1 bg-transparent pr-8 text-[17px] text-[#111827] outline-none placeholder:text-[#c6c9cf]"
+                        />
+                        {phoneValidationStatus === "validating" ? (
+                          <span aria-label="Verificando teléfono" className="absolute right-3 h-4 w-4 animate-spin rounded-full border-2 border-[#94a3b8]/30 border-t-[#94a3b8]" />
+                        ) : phoneValidationStatus === "valid" ? (
+                          <span aria-label="Teléfono verificado" className="absolute right-3 flex h-5 w-5 items-center justify-center rounded-full border border-[#16a34a] text-[13px] font-bold text-[#16a34a]">✓</span>
+                        ) : phoneValidationStatus === "invalid" ? (
+                          <span aria-label="Teléfono inválido" className="absolute right-3 flex h-5 w-5 items-center justify-center rounded-full border border-[#ef4444] text-[13px] font-bold text-[#ef4444]">×</span>
+                        ) : null}
                       </div>
                     </div>
                     {phoneError ? (
-                      <div className="flex items-center gap-2 border-t border-[#f5b5b5] px-3 py-[10px] text-[13px] text-[#e11d48]">
+                      <div id="quotify-phone-validation-message" role="alert" className="flex items-center gap-2 border-t border-[#f5b5b5] px-3 py-[10px] text-[13px] text-[#e11d48]">
                         <span className="text-[16px] leading-none">✕</span>
-                        <span>Por favor, ingresa un número de teléfono válido.</span>
+                        <span>{phoneError}</span>
                       </div>
                     ) : null}
                   </div>
-                  <button type="button" onClick={() => { const msg = phoneErrorMessage(answers.phoneNumber); if (msg) return setPhoneError(msg); setPhoneError(""); setStep("email"); }} className="mt-10 inline-flex h-[56px] w-full items-center justify-center gap-3 rounded-[8px] bg-[#3a9be7] px-6 text-[17px] font-bold text-white transition hover:bg-[#3493dd]">
+                  <button type="button" onClick={() => { if (phoneValidationStatus !== "valid") return; setPhoneError(""); setStep("email"); }} disabled={phoneValidationStatus !== "valid"} className="mt-10 inline-flex h-[56px] w-full items-center justify-center gap-3 rounded-[8px] bg-[#3a9be7] px-6 text-[17px] font-bold text-white transition hover:bg-[#3493dd] disabled:cursor-not-allowed disabled:opacity-60">
                     <span className="font-extrabold tracking-[-0.02em]">Ver mi cotización ahora</span>
                     <svg viewBox="0 0 256 256" className="h-[18px] w-[18px]" fill="none">
                       <line x1="40" y1="128" x2="216" y2="128" stroke="currentColor" strokeWidth="24" strokeLinecap="round" strokeLinejoin="round" />
