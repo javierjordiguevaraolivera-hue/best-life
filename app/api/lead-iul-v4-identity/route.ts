@@ -463,53 +463,78 @@ export async function POST(request: Request) {
     );
   }
 
-  const { error: metadataError } = await supabase
-    .from(metadataTableName)
-    .insert({
-      lead_id: data.lead_id,
-      application_id: buildApplicationNumber(data.lead_id),
-      source: lead.source,
-      page: lead.pagina,
-      submitted_at: submittedAt,
-      ip_address: requestIp,
-      geolocation: geo,
-      device_id: deviceId || null,
-      validation: lead.validation,
-      // Payload de identidad de Twilio (columna de texto) para evaluar mas adelante.
-      veriphone: JSON.stringify(identityMatch),
-      risk_flags: riskFlags,
-      adaccount_name: adaccountName || null,
-      lead_url: leadUrl || null,
-      payload: lead,
-    });
+  const metadataRow = {
+    lead_id: data.lead_id,
+    application_id: buildApplicationNumber(data.lead_id),
+    source: lead.source,
+    page: lead.pagina,
+    submitted_at: submittedAt,
+    ip_address: requestIp,
+    geolocation: geo,
+    device_id: deviceId || null,
+    validation: lead.validation,
+    // Payload de identidad de Twilio (columna de texto) para evaluar mas adelante.
+    veriphone: JSON.stringify(identityMatch),
+    risk_flags: riskFlags,
+    adaccount_name: adaccountName || null,
+    lead_url: leadUrl || null,
+    payload: lead,
+  };
 
-  if (metadataError) {
-    console.error("Supabase lead metadata insert failed", metadataError);
-    return NextResponse.json(
-      { error: "No pudimos guardar la metadata del lead en Supabase" },
-      { status: 502 }
-    );
-  }
-
+  // El lead YA quedo guardado: respondemos exito de inmediato para que el usuario
+  // no vea error ni reintente (el reintento era lo que generaba leads duplicados).
+  // La metadata es tracking complementario y se escribe "por detras" con reintentos;
+  // si aun asi falla, se registra y se descarta -- NO se crea ningun lead nuevo.
   const response = NextResponse.json({
     ok: true,
     saved: true,
     leadId: data?.lead_id ?? null,
   });
-
-  if (data?.lead_id && trustedFormCertUrl) {
-    waitUntil(
-      claimTrustedFormAndUpdateLead({
-        supabase,
-        metadataTableName,
-        leadId: data.lead_id,
-        certUrl: trustedFormCertUrl,
-        email: normalizeString(restAnswers.email),
-        phone: normalizedPhone,
-      }),
-    );
-  }
-
   response.cookies.delete(leadTokenCookieName);
+
+  waitUntil(
+    (async () => {
+      const METADATA_MAX_ATTEMPTS = 3;
+      let metadataSaved = false;
+
+      for (let attempt = 1; attempt <= METADATA_MAX_ATTEMPTS; attempt += 1) {
+        const { error: metadataError } = await supabase
+          .from(metadataTableName)
+          .insert(metadataRow);
+
+        if (!metadataError) {
+          metadataSaved = true;
+          break;
+        }
+
+        console.error(
+          `Supabase lead metadata insert failed (intento ${attempt}/${METADATA_MAX_ATTEMPTS}, lead ${data.lead_id})`,
+          metadataError,
+        );
+
+        if (attempt < METADATA_MAX_ATTEMPTS) {
+          await new Promise((resolve) => setTimeout(resolve, 400 * attempt));
+        }
+      }
+
+      if (!metadataSaved) {
+        console.error(
+          `Supabase lead metadata descartada tras ${METADATA_MAX_ATTEMPTS} intentos (el lead ${data.lead_id} SI se guardo)`,
+        );
+      }
+
+      if (data?.lead_id && trustedFormCertUrl) {
+        await claimTrustedFormAndUpdateLead({
+          supabase,
+          metadataTableName,
+          leadId: data.lead_id,
+          certUrl: trustedFormCertUrl,
+          email: normalizeString(restAnswers.email),
+          phone: normalizedPhone,
+        });
+      }
+    })(),
+  );
+
   return response;
 }
