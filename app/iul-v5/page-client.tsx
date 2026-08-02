@@ -645,6 +645,7 @@ export default function Home() {
   const [hasBlurredPhone, setHasBlurredPhone] = useState(false);
   const [leadToken, setLeadToken] = useState("");
   const [loadingProgress, setLoadingProgress] = useState(0);
+  const [evaluationCode, setEvaluationCode] = useState("");
   const transitionTimeoutRef = useRef<number | null>(null);
   const phoneValidationTimeoutRef = useRef<number | null>(null);
   const phoneValidationRequestRef = useRef(0);
@@ -717,6 +718,31 @@ export default function Home() {
 
   useEffect(() => {
     leadUrlRef.current = window.location.href;
+  }, []);
+
+  useEffect(() => {
+    const storageKey = "bf_iul_v5_eval_code";
+    try {
+      const existing = window.sessionStorage.getItem(storageKey);
+      if (existing) {
+        setEvaluationCode(existing);
+        return;
+      }
+    } catch {
+      // sessionStorage bloqueado: se genera un código no persistente.
+    }
+
+    const charset = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+    let code = "BL-";
+    for (let index = 0; index < 5; index += 1) {
+      code += charset[Math.floor(Math.random() * charset.length)];
+    }
+    setEvaluationCode(code);
+    try {
+      window.sessionStorage.setItem(storageKey, code);
+    } catch {
+      // sin persistencia; el código solo vive en este render.
+    }
   }, []);
 
   useEffect(() => {
@@ -1550,15 +1576,27 @@ export default function Home() {
             />
           </svg>
         </div>
-        <p className="mt-4 text-[14px] font-extrabold uppercase tracking-[0.06em] text-[#18bf79]">
-          ¡Felicidades{answers.firstName ? `, ${answers.firstName}` : ""}! Estás calificado
+        <p className="mt-4 text-[14px] font-extrabold tracking-[-0.01em] text-[#18bf79]">
+          ¡Felicidades{answers.firstName ? `, ${answers.firstName}` : ""}! Basado en tus respuestas
         </p>
         <h2 className="mx-auto mt-2 max-w-[460px] text-[28px] leading-[1.16] font-extrabold tracking-[-0.04em] text-[#101820] md:text-[38px]">
-          Llama ahora para hablar con un asesor certificado
+          Podrías ser aprobado hoy mismo
         </h2>
-        <p className="mx-auto mt-3 max-w-[420px] text-[15px] leading-[1.5] text-[#5d6674] md:text-[17px]">
-          Según tus respuestas, calificas para los beneficios del plan IUL.
-          Un asesor está disponible en este momento para darte tu cotización exacta.
+        <p className="mt-5 text-[12px] font-extrabold uppercase tracking-[0.14em] text-[#9aa3b2]">
+          Tu número de evaluación
+        </p>
+        <div className="mx-auto mt-2 inline-flex items-center gap-2 rounded-[12px] border border-[#e2e8f0] bg-[#f8fafc] px-4 py-2 text-[16px] font-black tracking-[0.12em] text-[#101820]">
+          <svg aria-hidden="true" viewBox="0 0 24 24" className="h-[18px] w-[18px] text-[#18bf79]" fill="none">
+            <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="2" />
+            <path d="m7.8 12.2 2.6 2.6 5.8-6" stroke="currentColor" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+          <span>{evaluationCode || "BL-·····"}</span>
+        </div>
+        <p className="mx-auto mt-4 max-w-[420px] text-[15px] leading-[1.5] font-bold text-[#101820] md:text-[16px]">
+          Recuerda que para calificar,{" "}
+          <span className="font-black text-[#e11d48] underline underline-offset-2">
+            tienes que llamar.
+          </span>
         </p>
 
         <a
