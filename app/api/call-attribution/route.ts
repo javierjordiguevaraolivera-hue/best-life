@@ -19,8 +19,8 @@ function normalizePhone(value: unknown) {
   return digits;
 }
 
-function isUuid(value: string) {
-  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+function isLeadId(value: string) {
+  return /^[A-Za-z0-9-]{8,40}$/.test(value);
 }
 
 export async function POST(request: Request) {
@@ -29,7 +29,7 @@ export async function POST(request: Request) {
   const printedNumber = normalizePhone(body?.printedNumber);
   const applicationId = normalizeString(body?.applicationId);
 
-  if (!leadId || !isUuid(leadId)) {
+  if (!leadId || !isLeadId(leadId)) {
     return NextResponse.json({ ok: true, skipped: "missing_or_invalid_lead_id" });
   }
 
