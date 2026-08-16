@@ -13,6 +13,7 @@ type LeadPayload = {
     trustedFormCertUrl?: string;
     salePath?: "lead" | "call";
     adaccountName?: string;
+    adId?: string;
     leadUrl?: string;
     phoneVerification?: unknown;
     phoneVerificationToken?: string;
@@ -350,6 +351,7 @@ export async function POST(request: Request) {
   const deviceId = String(body.meta?.deviceId || getRequestCookie(request, deviceCookieName)).trim();
   const trustedFormCertUrl = normalizeString(body.meta?.trustedFormCertUrl);
   const adaccountName = normalizeString(body.meta?.adaccountName);
+  const adId = normalizeString(body.meta?.adId);
   const leadUrl = normalizeString(body.meta?.leadUrl);
   const userAgent = normalizeString(request.headers.get("user-agent"));
   const now = Date.now();
@@ -408,6 +410,7 @@ export async function POST(request: Request) {
     sub1,
     sub2,
     adaccountName: adaccountName || null,
+    adId: adId || null,
     ipAddress: requestIp,
     userAgent: userAgent || null,
     geolocation: geo,
@@ -451,6 +454,7 @@ export async function POST(request: Request) {
       domain: leadDomain,
       sub1: sub1 || null,
       sub2: sub2 || null,
+      ad_id: adId || null,
     })
     .select("lead_id")
     .single();

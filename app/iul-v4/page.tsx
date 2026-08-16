@@ -1559,6 +1559,7 @@ export default function Home() {
       const sub1 = urlParams.get("sub1")?.trim() || "";
       const sub2 = urlParams.get("sub2")?.trim() || "";
       const adaccountName = urlParams.get("adaccount_name")?.trim() || "";
+      const adId = urlParams.get("ad_id")?.trim() || "";
       const cleanedAnswers = Object.fromEntries(
         Object.entries({
           ageGroup: completedAnswers.ageGroup,
@@ -1592,6 +1593,7 @@ export default function Home() {
             trustedFormCertUrl: getTrustedFormCertUrl(),
             salePath: shouldUsePayPerCallThankYou ? "call" : "lead",
             adaccountName,
+            adId,
             leadUrl: leadUrlRef.current || window.location.href,
             phoneVerification,
             phoneVerificationToken,
