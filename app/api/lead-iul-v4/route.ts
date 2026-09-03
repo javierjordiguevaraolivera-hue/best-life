@@ -467,23 +467,30 @@ export async function POST(request: Request) {
     );
   }
 
+  // Upsert: el pipeline de venta puede crear la fila de metadata (solo con
+  // lead_status_history) milisegundos despues del INSERT de leads; si gana esa
+  // carrera, un insert normal choca con 23505. El upsert rellena esa fila
+  // actualizando SOLO estas columnas, sin pisar lo que escribio el pipeline.
   const { error: metadataError } = await supabase
     .from(metadataTableName)
-    .insert({
-      lead_id: data.lead_id,
-      application_id: buildApplicationNumber(data.lead_id),
-      source: lead.source,
-      page: lead.pagina,
-      submitted_at: submittedAt,
-      ip_address: requestIp,
-      geolocation: geo,
-      device_id: deviceId || null,
-      validation: lead.validation,
-      risk_flags: riskFlags,
-      adaccount_name: adaccountName || null,
-      lead_url: leadUrl || null,
-      payload: lead,
-    });
+    .upsert(
+      {
+        lead_id: data.lead_id,
+        application_id: buildApplicationNumber(data.lead_id),
+        source: lead.source,
+        page: lead.pagina,
+        submitted_at: submittedAt,
+        ip_address: requestIp,
+        geolocation: geo,
+        device_id: deviceId || null,
+        validation: lead.validation,
+        risk_flags: riskFlags,
+        adaccount_name: adaccountName || null,
+        lead_url: leadUrl || null,
+        payload: lead,
+      },
+      { onConflict: "lead_id" },
+    );
 
   if (metadataError) {
     console.error("Supabase lead metadata insert failed", metadataError);
