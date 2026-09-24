@@ -4,9 +4,9 @@
 // pasa por ningún pool de números.
 //
 // Este archivo es exclusivo de /ppc. Ninguna otra página de Best Life lo usa.
-const ppcPhoneDigits = "8884619420";
+const ppcPhoneDigits = "8633401769";
 
-/** Formato "de anuncio": (888) 461-9420. El tel: siempre va en E.164. */
+/** Formato "de anuncio": (863) 340-1769. El tel: siempre va en E.164. */
 export function formatPpcPhone(digits: string) {
   if (digits.length !== 10) return digits;
   return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`;
