@@ -1,4 +1,4 @@
-import { geolocation, ipAddress, waitUntil } from "@vercel/functions";
+import { geolocation, ipAddress } from "@vercel/functions";
 import { NextResponse } from "next/server";
 import { leadTokenCookieName } from "@/app/api/lead-token/route";
 import { buildApplicationNumber } from "@/lib/application-number";
@@ -18,12 +18,6 @@ type LeadPayload = {
     phoneVerification?: unknown;
     phoneVerificationToken?: string;
   };
-};
-
-type TrustedFormClaimResult = {
-  status: "claimed" | "skipped" | "failed";
-  response?: unknown;
-  error?: string;
 };
 
 const PHONE_WINDOW_MS = 6 * 60 * 60 * 1000;
@@ -198,124 +192,6 @@ function getLeadSource() {
 function getLeadDomain() {
   const value = process.env.NEXT_PUBLIC_LEAD_DOMAIN?.trim().toLowerCase();
   return value || null;
-}
-
-function isTrustedFormCertUrl(value: string) {
-  try {
-    const url = new URL(value);
-    return url.protocol === "https:" && url.hostname === "cert.trustedform.com";
-  } catch {
-    return false;
-  }
-}
-
-async function claimTrustedFormCertificate({
-  certUrl,
-  email,
-  phone,
-  leadId,
-}: {
-  certUrl: string;
-  email: string;
-  phone: string;
-  leadId: string;
-}): Promise<TrustedFormClaimResult> {
-  const apiKey = process.env.TRUSTEDFORM_API_KEY?.trim();
-
-  if (!certUrl || !isTrustedFormCertUrl(certUrl)) {
-    return { status: "skipped", error: "Missing or invalid TrustedForm certificate URL" };
-  }
-
-  if (!apiKey || apiKey === "your-trustedform-api-key-here") {
-    return { status: "skipped", error: "TrustedForm API key is not configured" };
-  }
-
-  const response = await fetch(certUrl, {
-    method: "POST",
-    headers: {
-      Accept: "application/json",
-      Authorization: `Basic ${Buffer.from(`API:${apiKey}`).toString("base64")}`,
-      "Content-Type": "application/json",
-      "api-version": "4.0",
-    },
-    body: JSON.stringify({
-      retain: {
-        reference: leadId,
-        vendor: process.env.TRUSTEDFORM_VENDOR?.trim() || "Best Life",
-      },
-      match_lead: {
-        email,
-        phone,
-      },
-    }),
-    cache: "no-store",
-  });
-
-  const responseBody = await response.json().catch(async () => response.text().catch(() => null));
-
-  if (!response.ok) {
-    return {
-      status: "failed",
-      response: responseBody,
-      error: `TrustedForm claim failed with ${response.status}`,
-    };
-  }
-
-  return {
-    status: "claimed",
-    response: responseBody,
-  };
-}
-
-async function claimTrustedFormAndUpdateLead({
-  supabase,
-  metadataTableName,
-  leadId,
-  certUrl,
-  email,
-  phone,
-}: {
-  supabase: ReturnType<typeof createSupabaseAdminClient>;
-  metadataTableName: string;
-  leadId: string;
-  certUrl: string;
-  email: string;
-  phone: string;
-}) {
-  if (!supabase) return;
-
-  try {
-    const claimResult = await claimTrustedFormCertificate({
-      certUrl,
-      email,
-      phone,
-      leadId,
-    });
-
-    const { error } = await supabase
-      .from(metadataTableName)
-      .update({
-        trustedform_claim_status: claimResult.status,
-        trustedform_claimed_at: claimResult.status === "claimed" ? new Date().toISOString() : null,
-        trustedform_claim_response: claimResult.response ?? null,
-        trustedform_claim_error: claimResult.error ?? null,
-      })
-      .eq("lead_id", leadId);
-
-    if (error) {
-      console.error("TrustedForm claim status update failed", error);
-    }
-  } catch (error) {
-    console.error("TrustedForm claim failed", error);
-
-    await supabase
-      .from(metadataTableName)
-      .update({
-        trustedform_claim_status: "failed",
-        trustedform_claim_error: error instanceof Error ? error.message : "TrustedForm claim failed",
-      })
-      .eq("lead_id", leadId);
-  }
 }
 
 export async function POST(request: Request) {
@@ -506,18 +382,6 @@ export async function POST(request: Request) {
     leadId: data?.lead_id ?? null,
   });
 
-  if (data?.lead_id && trustedFormCertUrl) {
-    waitUntil(
-      claimTrustedFormAndUpdateLead({
-        supabase,
-        metadataTableName,
-        leadId: data.lead_id,
-        certUrl: trustedFormCertUrl,
-        email: normalizeString(restAnswers.email),
-        phone: phoneValidation.normalized,
-      }),
-    );
-  }
 
   response.cookies.delete(leadTokenCookieName);
   return response;
